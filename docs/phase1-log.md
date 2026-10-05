@@ -8,12 +8,16 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 
 ### What was done
 
-1. **Found the reference KG.** The "snap" Naresh mentioned is the **DBMS Research KG**, in `Samyama.ai/samyama-graph` under `case_studies/dbms-research` (18,751 nodes, 38,539 edges). Its snapshot is `dbms-research.sgsnap` on the `kg-snapshots-v7` release. The raw data is `github.com/samyama-ai/dbms_research`. This KG copies that structure.
+1. **Found the reference KG.** The "snap" Sandeep Kunkunuru mentioned is the **DBMS Research KG**, in `Samyama.ai/samyama-graph` under `case_studies/dbms-research` (18,751 nodes, 38,539 edges). Its snapshot is `dbms-research.sgsnap` on the `kg-snapshots-v7` release. The raw data is `github.com/samyama-ai/dbms_research`. This KG copies that structure.
 2. **Chose the repo name:** `ai-research-kg`, matching the `<topic>-kg` pattern (cricket-kg, edge-ai-kg, ...). The data repo `samyama-ai/ai_research` keeps its own name. The repo was created from `kg-repo-template` on Gitea.
 3. **Read the build guide** (*How to Build a Samyama KG*, 9 phases) and the four-layer graph-stack wiki page. This KG is mainly Layer 1 (domain vocabulary and connections), stored in Layer 2 (openCypher).
 4. **Wrote the scope note** (`docs/scope.md`): one core question, 41 example questions in groups A–H (including two the graph should refuse), the brief, the entity and relationship glossary, the data source and licence, out-of-scope items, and the reference KG.
 5. **Estimated the graph size** (`etl/count_kg.py`, run over all 1,000 problem files): about 20K nodes and 45–50K edges in the baseline, in the same range as the DBMS Research KG. The schema draft pushes this to ~25–28K / ~55–60K once OpenQuestion, MENTIONS and BLOCKED_BY are included.
 6. **Drafted the schema** (`docs/schema.md`, v0.1): 12 core node types plus a DataSource bookkeeping node, 15 relationship types (one computed, RELATED_TO), provenance on every node and edge, fixed vocabularies for citation roles and obstructions, question coverage against the scope, and an implementation checklist. Laid out like the *Enterprise Valuation KG — Detailed Schema*.
+
+### Also today (outside this repo)
+
+- Read Parts 1 and 2 of paper 20, *How much of the multilingual token tax is removable* (arXiv 2609.00378), and sections 0 to 6 of its DOCUMENTATION.md. The paper splits the non-English token tax into a removable part (tokenizer choice) and an irreducible part (content that is genuinely longer). Notes and open items are tracked in the Samyama paper tracker, not here.
 
 ### Decisions
 
