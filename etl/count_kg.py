@@ -7,7 +7,13 @@ estimate only: no data is loaded. Written for Phase 1 (scope) on 2026-10-05.
 Usage:
     python etl/count_kg.py /path/to/ai_research
 """
-import re, sys, glob, os, collections, json
+import collections
+import glob
+import json
+import os
+import re
+import sys
+
 root = sys.argv[1]
 files = [f for f in glob.glob(f"{root}/topics/*/*.md") if not f.endswith("README.md")]
 C = collections.Counter

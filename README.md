@@ -1,89 +1,92 @@
 # AI Research Knowledge Graph
 
-**{{N}} nodes. {{M}} edges. {{ONE_LINE_SCOPE}} from {{K}} sources.**
+**28,960 nodes. 62,178 edges.** 1,000 open problems in AI and machine learning, with the papers, people, labs, assumptions, gaps and next experiments around them, from 1 source.
 
-![AI Research demo](demo/ai_research.gif)
+> Part of the **Samyama** ecosystem: loaded into and queried with [samyama-graph](https://github.com/samyama-ai/samyama-graph). Sibling of the **DBMS Research KG** (`samyama-graph/case_studies/dbms-research`), built the same way from the sibling catalog.
 
-> Part of the **Samyama** ecosystem — loaded into and queried via the graph engine at [samyama-ai/samyama-graph](https://github.com/samyama-ai/samyama-graph).
-> This repo holds the loader and source-data specifics for the KG.
-
-<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/code-Apache_2.0-blue" alt="Code licence"></a>
+Content licence: **to be decided before publishing** (see [`docs/standards.md`](docs/standards.md) §5).
 
 ---
 
-We loaded {{SOURCES}} into one graph, then asked:
+We loaded the [`ai_research`](https://github.com/samyama-ai/ai_research) catalog into one graph, then asked:
 
-> *"{{EXAMPLE_QUESTION}}"*
+> *"Which papers are cited across the most AI research topics?"*
 
 ```cypher
-MATCH (a:{{NodeA}})-[:{{REL}}]->(b:{{NodeB}})
-RETURN b.name, count(a) AS n
-ORDER BY n DESC LIMIT 5
+MATCH (t:Topic)<-[:IN_TOPIC]-(p:Problem)-[:CITES]->(pa:Paper)
+RETURN pa.title AS paper, count(DISTINCT t.id) AS topics
+ORDER BY topics DESC LIMIT 5
 ```
 
-**One query across every source.** Powered by [Samyama Graph](https://github.com/samyama-ai/samyama-graph).
+| paper | topics |
+|---|---|
+| Training Compute-Optimal Large Language Models | 28 |
+| Scaling Laws for Neural Language Models | 20 |
+| Lost in the Middle: How Language Models Use Long Contexts | 15 |
+| RULER: What's the Real Context Size of Your Long-Context Language Models? | 15 |
+| Quantifying Memorization Across Neural Language Models | 13 |
 
----
+And why problems stay open, which the catalog names in "Why It Is Hard":
 
-## Demo
+| obstruction | problems |
+|---|---|
+| Confounded measurement | 521 |
+| Non-identifiability | 460 |
+| Absent ground truth | 208 |
+| Compute cost | 131 |
+| Evaluation does not measure what it names | 104 |
 
-A narrated walkthrough on a fast, real subset.
-
-```bash
-python -m demo.demo                                                     # run live
-asciinema rec --overwrite --cols 92 --rows 32 --idle-time-limit 2.0 \
-  -c "bash -c 'python -m demo.demo'" demo/ai_research.cast              # re-record
-agg demo/ai_research.cast demo/ai_research.gif                          # convert to gif
-```
+All numbers were measured on engine 1.11.0 on 2026-10-07, from catalog commit `a02e87b3`. `benchmarks/queries.py` reproduces them.
 
 ---
 
 ## Schema
 
-**Node labels** -- {{NODE_LABELS}}
-**Edge types** -- {{EDGE_TYPES}}
-**Data sources** -- {{SOURCES}}
+**Node labels** (11): Problem 1,000 · Topic 35 · Paper 4,932 · Person 15,097 · Venue 550 · Institution 50 · Assumption 2,499 · OpenQuestion 3,790 · Obstruction 6 · FutureDirection 1,000 · DataSource 1
 
-See [`schema/ai_research_kg.cypher`](schema/ai_research_kg.cypher) for the full schema.
+**Edge types** (11): `IN_TOPIC` · `CITES {role}` · `AUTHORED_BY` · `APPEARED_AT` · `RESTS_ON` · `HAS_GAP {kind on target}` · `BLOCKED_BY` · `HAS_NEXT_EXPERIMENT` · `ACTIVE_ON` · `RELATED_TO` (computed from shared papers) · `FROM_SOURCE`
+
+**Data source**: `github.com/samyama-ai/ai_research` only, pinned at commit `a02e87b3`. There are no external lookups and no LLM extraction; every node is parsed from the catalog's Markdown.
+
+See [`schema/ai_research_kg.cypher`](schema/ai_research_kg.cypher), [`docs/schema.md`](docs/schema.md) and [`DATASET_CARD.md`](DATASET_CARD.md).
 
 ## Quick Start
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-python -m etl.download_data          # fetch source data into data/
-python -m etl.loader                 # build + load the graph
-python -m mcp_server.server          # expose the KG over MCP
-pytest                               # run tests
+# an empty engine (CORS flag lets Samyama Insight connect; see docs/ENGINE-NOTES.md)
+docker run -d --name samyama-ai_research -p 8090:8080 ghcr.io/samyama-ai/samyama-graph:latest \
+  samyama --host 0.0.0.0 --cors-origin https://graph.samyama.cloud
+
+python -m etl.download_data                         # catalog -> data/ai_research (pinned commit)
+python -m etl.loader --url http://127.0.0.1:8090    # parse + load + verify counts (~30 s)
+python -m benchmarks.queries                        # the scope.md questions, 32 queries
+pytest                                              # parser, invariant and count tests
+
+# optional: portable snapshot, same format as dbms-research.sgsnap
+curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/export
 ```
+
+`python -m etl.parse` builds the graph without an engine and writes `data/graph.json`.
 
 ## Structure
 ```
-etl/          # downloaders + graph loader
-schema/       # cypher schema / ontology
-mcp_server/   # MCP server exposing the KG
-demo/         # narrated demo (cast + gif)
-benchmarks/   # benchmark queries
-docs/         # design + source notes
-tests/        # pytest
-pyproject.toml
+etl/download_data.py   # clone ai_research at the pinned commit
+etl/parse.py           # Markdown -> nodes and edges (all extraction rules live here)
+etl/loader.py          # schema + batched load + count verification
+etl/count_kg.py        # Phase 1 size estimate (kept for reference)
+schema/                # Cypher schema (indexes)
+benchmarks/queries.py  # query catalog AR01-AR30, AR90-AR91
+docs/                  # scope, schema, standards, engine notes, phase logs
+tests/                 # parser tests on fixtures + full-graph invariants
 ```
 
----
-## Using this template
-1. Click **Use this template** (this repo is a Gitea template) and name your repo `<domain>-kg`.
-2. Find-and-replace the `{{...}}` placeholders (KG_NAME, KG_SLUG, NODE_LABELS, EDGE_TYPES, SOURCES, N, M, K, example query).
-3. Rename `schema/template_kg.cypher` -> `schema/<slug>_kg.cypher` and fill in real node/edge definitions.
-4. Implement the `etl/` downloaders + loader and the `mcp_server/` tools for your domain.
-5. Add the repo to the **samyama-graph** team.
+## Known limits (v1)
 
-### Placeholder reference
-| Placeholder | Meaning |
-|-------------|---------|
-| `{{KG_NAME}}` | Human name, e.g. "Drug Interactions" |
-| `{{KG_SLUG}}` | file/id slug, e.g. "druginteractions" |
-| `{{NODE_LABELS}}` / `{{EDGE_TYPES}}` | comma-separated schema |
-| `{{SOURCES}}` | data sources + licenses |
-| `{{N}}`/`{{M}}`/`{{K}}` | node/edge/source counts |
-| `{{EXAMPLE_QUESTION}}` / `{{NodeA}}`/`{{REL}}`/`{{NodeB}}` | hero query |
+- **No Method nodes.** The bold text in "State of the Art" is evidence labels ("Established", "Claimed but unablated"), not method names, so methods can't be extracted without an LLM or an outside source.
+- **People are not resolved.** The catalog writes authors three ways (`Wortsman`, `T. Moerland`, `Rico Sennrich`). As in the DBMS KG, bare surnames are never merged into full names; filter on `name_form = 'full'` for people queries.
+- **Institutions** are matched by name against a fixed list of 50 labs and universities in "Current Research".
+- **No embeddings / vector search.** The DBMS KG used OpenAI embeddings; this build uses nothing outside the catalog.

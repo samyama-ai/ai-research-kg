@@ -2,6 +2,20 @@
 
 Core property-graph model for open AI research problems, their evidence, and the people, papers and methods around them.
 
+> **v1 as built (2026-10-07).** The graph is built from the `ai_research` catalog only, so it differs from the v0.1 design below in these ways:
+>
+> | v0.1 design | v1 as built | Why |
+> |---|---|---|
+> | Method node, `STATE_OF_ART`, `MENTIONS`, `INTRODUCED_IN` | **not built** | Bold text in "State of the Art" is evidence labels ("Established", "Claimed but unablated"), not method names |
+> | `Person -AFFILIATED_WITH-> Institution` | **not built** | Affiliations need DBLP/OpenAlex, which are outside the catalog |
+> | Person resolved via arXiv | names kept as written, with `name_form` = full / initials / surname / collective | No external lookups |
+> | Obstruction: 9-type draft list | the **5 types named in the catalog's TEMPLATE.md**, plus `other` | The catalog already uses that vocabulary |
+> | Problem `embedding` | **not built** | Embeddings need an outside model |
+> | `DERIVED_FROM` | `FROM_SOURCE` (Problem → DataSource) | — |
+> | `RELATED_TO` | built: ≥2 shared papers, top 5 per problem by Jaccard | as designed |
+>
+> Measured counts are in the README; the extraction rules live in `etl/parse.py`; the loaded schema is `schema/ai_research_kg.cypher`.
+
 > **Design principle:** Everything hangs off a **Problem** node. Every fact records where it came from, so each answer can be traced back to the exact problem page and reference it was read from.
 
 | | |
