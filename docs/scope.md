@@ -5,7 +5,7 @@ What are the open problems in AI research, and how do they connect
 to topics, papers, people and methods?
 
 Note: "problem" = any of the 1,000 catalog entries; "open" = status: open.
-Other statuses: partially-solved, empirically-open, methodologically-blocked, solved-but-impractical, stale.
+Other statuses: partially-solved, empirically-open, methodologically-blocked, solved-but-impractical. Staleness is represented by `stale_since`, not a status.
 Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, methodologically-blocked 96, solved-but-impractical 19.
 
 ## A Problems & Topics
@@ -89,7 +89,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 
 ## Relationships (edges)
 - Problem -IN_TOPIC-> Topic
-- Problem -CITES-> Paper (property role: Foundational / SOTA / Survey / Caution / Method)
+- Problem -CITES-> Paper (property role: one of 7 grouped citation roles, plus raw source tag)
 - Paper -AUTHORED_BY-> Person
 - Paper -APPEARED_AT-> Venue
 - Person -AFFILIATED_WITH-> Institution
@@ -98,6 +98,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 - Problem -MENTIONS-> Method
 - Problem -STATE_OF_ART-> Method (property evidence: established / claimed; same direction as the DBMS KG)
 - Problem -RESTS_ON-> Assumption
+- Assumption -INSTANCE_OF-> AssumptionClass (curated canonical category for Q34)
 - Problem -BLOCKED_BY-> Obstruction
 - Problem -HAS_NEXT_EXPERIMENT-> FutureDirection
 - Problem -RELATED_TO-> Problem
@@ -106,7 +107,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 ## Data source
 - github.com/samyama-ai/ai_research: 1,000 problems, 35 topics, one .md file per problem (TEMPLATE.md layout)
 - Real data, so no synthetic data is needed
-- Licence: the repo has NO licence file. Ask Naresh/Sandeep before publishing.
+- Licence: the repo has NO licence file. Ask Naresh/Sandeep before publishing. **No source snapshot may be published until its licence is confirmed.**
 
 ## Out of scope
 - Benchmark leaderboards, model rankings
@@ -116,9 +117,9 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 ## Reference KG
 - DBMS Research snap: samyama-graph/case_studies/dbms-research (same structure, sibling catalog)
 
-## Estimated size (parsed 2026-10-05, script: count_kg.py)
-- ~20,000 nodes, ~45,000-50,000 edges (DBMS Research KG: 18,751 / 38,539)
-- Problem 1,000 · Topic 35 · Paper ~5,000 · Person ~7-9K · Assumption ~3,160 · FutureDirection 1,000 · Venue ~200-650 · Lab ~50-100 · Method ~2-3K
-- Known data issues: messy author names (resolve via arXiv IDs, 71% coverage); ~500 reference-tag variants to group into ~6 roles; venue names need normalizing; 1 problem has no references; skip candidates.json files
+## Estimated size (counter rerun 2026-10-08; script: count_kg.py)
+- Rough planning range: ~25,000–28,000 nodes and ~55,000–60,000 edges; this is not a complete count of every schema type. `count_kg.py` measures only the fields listed in its JSON output.
+- Measured by `count_kg.py` on the local catalog snapshot: 1,000 problems, 35 topics, 4,941 papers, 11,659 distinct listed author strings, 2,492 assumption items, 3,810 §5 list items, 12,617 references, and 71.3% of references with an arXiv ID. Author identities and venue names are not resolved, so these are raw-string counts.
+- Rough estimates only: 50–100 labs, 2–3K methods, and venue normalization from 700 raw venue strings. The parser finds references on all 1,000 pages; it does not validate that every reference line is semantically correct. `README.md` and `candidates.json` are skipped.
 
 Full schema: see schema.md (v0.1 draft, 2026-10-05).

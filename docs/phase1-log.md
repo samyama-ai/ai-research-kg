@@ -12,12 +12,8 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 2. **Chose the repo name:** `ai-research-kg`, matching the `<topic>-kg` pattern (cricket-kg, edge-ai-kg, ...). The data repo `samyama-ai/ai_research` keeps its own name. The repo was created from `kg-repo-template` on Gitea.
 3. **Read the build guide** (*How to Build a Samyama KG*, 9 phases) and the four-layer graph-stack wiki page. This KG is mainly Layer 1 (domain vocabulary and connections), stored in Layer 2 (openCypher).
 4. **Wrote the scope note** (`docs/scope.md`): one core question, 41 example questions in groups A–H (including two the graph should refuse), the brief, the entity and relationship glossary, the data source and licence, out-of-scope items, and the reference KG.
-5. **Estimated the graph size** (`etl/count_kg.py`, run over all 1,000 problem files): about 20K nodes and 45–50K edges in the baseline, in the same range as the DBMS Research KG. The schema draft pushes this to ~25–28K / ~55–60K once OpenQuestion, MENTIONS and BLOCKED_BY are included.
+5. **Estimated the graph size** (`etl/count_kg.py`, run over all 1,000 problem files): the script reports measured source counts for the fields it parses. Whole-graph totals (~25–28K nodes / ~55–60K edges) are rough planning estimates because some node and edge types are not produced by the counter.
 6. **Drafted the schema** (`docs/schema.md`, v0.1): 12 core node types plus a DataSource bookkeeping node, 15 relationship types (one computed, RELATED_TO), provenance on every node and edge, fixed vocabularies for citation roles and obstructions, question coverage against the scope, and an implementation checklist. Laid out like the *Enterprise Valuation KG — Detailed Schema*.
-
-### Also today (outside this repo)
-
-- Read Parts 1 and 2 of paper 20, *How much of the multilingual token tax is removable* (arXiv 2609.00378), and sections 0 to 6 of its DOCUMENTATION.md. The paper splits the non-English token tax into a removable part (tokenizer choice) and an irreducible part (content that is genuinely longer). Notes and open items are tracked in the Samyama paper tracker, not here.
 
 ### Decisions
 
@@ -25,14 +21,14 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 |---|---|---|
 | "Open problem" | "problem" = any catalog entry; "open" = `status: open` | The catalog has 5 statuses, so the word was ambiguous |
 | RELATED_TO | Computed (shared papers/methods or embedding similarity), labelled as computed | The problem pages have no "related problems" section |
-| Citation roles | ~500 raw tag variants grouped into ~6 roles, raw kept in `role_raw` | Needed for the survey / foundational / caution questions |
+| Citation roles | ~500 raw tag variants grouped into 7 roles, raw kept in `role_raw` | Needed for the survey / foundational / caution questions |
 | Edge names | Same as the DBMS Research KG where the meaning is the same | So the two KGs can be bridged later |
 
 ### Known data issues (from the count script)
 
-- Author names are messy (surname only, initials, full name). Resolve through arXiv IDs; about 71% of references have one.
-- 656 raw venue spellings need normalising to ~200 venues.
-- 1 problem has no references. Leave it with none; never invent.
+- Author strings are messy (surname only, initials, full name). The counter preserves `Surname, Initial` pairs; 71.3% of references have an arXiv ID. Person identities still need resolution.
+- Venue normalization is unresolved: the counter finds about 700 distinct normalized raw venue strings, with ~200 venues only a rough estimate.
+- The counter parses references on all 1,000 pages; this is a syntax count and not semantic validation.
 - `README.md` and `candidates.json` inside topic folders are not problems and must be skipped.
 
 ### Open questions for Naresh / Sandeep
