@@ -1,143 +1,178 @@
-# AI Research KG — Standards, Coding Systems, Taxonomies and Ontologies
+# Standards, coding systems, taxonomies and ontologies
 
-Phase 4 of *How to Build a Samyama Knowledge Graph*. This file lists every standard, identifier scheme, taxonomy and ontology the graph **uses**, **follows**, or **deliberately leaves out**, and why.
+Every standard, coding system, taxonomy and ontology the AI Research KG is built on: what is in
+the graph from each, what is only planned, and whether the graph keeps its rules. Layout follows
+[enterprise-valuation-kg docs/standards.md](https://git.samyama.ai/Samyama.ai/enterprise-valuation-kg/src/branch/main/docs/standards.md).
 
-Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
+v0.3, 2026-10-09. v0.2 (2026-10-07) chose the sources; v0.3 adds what the v1 graph actually
+holds and checks it. Every count is measured by `python -m etl.conformance`, with the check ids
+from [conformance.md](conformance.md).
 
-**Approach: do what the DBMS Research KG did.** Its source repo `dbms_research` resolves people with **DBLP** and checks references with **arXiv, Crossref, DataCite and DBLP** (`tools/dblp_*.py`, `tools/verify_refs.py`), and releases content under **CC BY 4.0**. It uses neither ACM CCS nor Semantic Scholar. This KG copies those choices.
+**Approach: do what the DBMS Research KG did.** Its source repo `dbms_research` resolves people
+with **DBLP**, checks references with **arXiv, Crossref, DataCite and DBLP**, and releases content
+under **CC BY 4.0**. It uses neither ACM CCS nor Semantic Scholar. This KG copies those choices.
+**v1 uses the catalog only** (no external lookups), so the outside identifiers are 🔑 planned,
+not loaded.
 
-**Rule:** reuse the codes the field already uses instead of inventing our own. That's what makes this graph joinable with other data, such as the DBMS and Maths research KGs, OpenAlex, or a company's publication list.
+| Kind | What it is | Example here | How many |
+|---|---|---|---:|
+| **Coding system** | A list of codes, each code naming one thing | `arXiv:2406.11779`; `20-interpretability/internals-based-safety-verification`; `CITES.role = sota` | **9 external + 12 own** |
+| **Taxonomy** | Codes arranged as a tree, or a fixed classification | the 35 topics of TAXONOMY.md; the 5 obstruction types | **2 in use + 2 proposed levels** |
+| **Ontology** | What kinds of thing exist and how they relate | `(Problem)-[:CITES {role}]->(Paper)` = `cito:cites` | **1 own + 7 followed** |
+| **Standard / framework** | A rulebook we follow or reuse as a vocabulary | ISO 8601 dates; PROV-O provenance; FAIR | **6 followed + 4 later (RAI)** |
 
----
+Status key: ✅ **loaded** = in the graph today · 🔑 **identifier, planned** = will be a property
+once external lookups are allowed · 📐 **pattern** = we follow its structure; nothing is imported
+· 🔜 **later** · ❌ **not used**.
 
-## 1. Summary
+## Coding systems
 
-| # | Name | Kind | Decision | Used for |
-|---|---|---|---|---|
-| 1 | ai_research `TAXONOMY.md` | Taxonomy | ✅ **Use** (primary) | `Topic` nodes |
-| 2 | arXiv identifier | Identifier standard | ✅ **Use** | `Paper.id` |
-| 3 | arXiv category taxonomy | Coding system | ✅ **Use** | `Paper.arxiv_categories`, Topic crosswalk |
-| 4 | DOI | Identifier standard | ✅ **Use** where present | `Paper.doi` |
-| 5 | ORCID iD | Identifier standard | ✅ **Use** where DBLP gives it | `Person.orcid` |
-| 6 | **DBLP** | Identifier + bibliography | ✅ **Use** (as DBMS) | `Person.dblp_pid`, `dblp_url`, affiliation; reference checks |
-| 7 | Crossref + DataCite | DOI metadata services | ✅ **Use** (as DBMS) | reference verification |
-| 8 | ISO 8601 | Standard | ✅ **Follow** | all dates |
-| 9 | PROV-O | Ontology (pattern) | ✅ **Follow** | provenance fields |
-| 10 | SKOS | Ontology (pattern) | ✅ **Follow** | Topic hierarchy and crosswalks |
-| 11 | OpenAlex IDs + Topics | Identifier + taxonomy | ⚠️ **Optional** (DBMS didn't use it) | fallback for people DBLP misses; Topic crosswalk |
-| 12 | ROR ID | Identifier standard | ⚠️ **Optional** (DBMS didn't use it) | `Institution.ror_id` |
-| 13 | ACM CCS 2012 | Taxonomy | ❌ **Not used** (as DBMS; licence is non-commercial) | — |
-| 14 | Semantic Scholar | Identifier + graph | ❌ **Not used** (as DBMS) | — |
-| 15 | Papers with Code | Taxonomy (tasks/methods) | ❌ **Not used** | — |
-| 16 | NIST AI RMF 1.0 | Standard (RAI) | 🔜 **Later** | RAI extension |
-| 17 | EU AI Act | Regulation (RAI) | 🔜 **Later** | RAI extension |
-| 18 | ISO/IEC 42001:2023 | Standard (RAI) | 🔜 **Later**, name only | RAI extension |
-| 19 | OECD AI Principles | Principles (RAI) | 🔜 **Later** | RAI extension |
+### External (9)
 
----
+| Coding system | Authority | Codes | In the graph | Status | Follows it? |
+|---|---|---|---|---|---|
+| **arXiv identifier** (`YYMM.NNNNN`) | arXiv / Cornell | papers | `Paper.arxiv_id`, id `paper:arxiv:<id>`: **3,081** papers | ✅ | ✅ all valid (C4). 5 papers have a venue year before their arXiv month; that's normal (C5) |
+| **DOI** (ISO 26324) | International DOI Foundation | papers | `Paper.doi`, id `paper:doi:<doi>`: **1** paper | ✅ | ✅ (C6). The catalog rarely gives DOIs; never guessed |
+| **ISO 8601** dates | ISO | dates | `first_added`, `last_reviewed`, `last_substantive_update` as `YYYY-MM` | ✅ | ✅ 3,000 values (C7) |
+| **Git commit SHA-1** | git | source version | `DataSource.version` = `a02e87b3…` (40 hex) | ✅ | ✅ equals the pinned commit (C8) |
+| **DBLP person id** (`pid`) | Schloss Dagstuhl (CC0) | researchers | `Person.dblp_pid` | 🔑 | not yet: **52%** of 15,097 authors are initials or surname only (C12) |
+| **ORCID iD** | ORCID | researchers | `Person.orcid`, only when DBLP gives it | 🔑 | — |
+| **DBLP stream key** (`conf/nips`, `journals/jmlr`) | Schloss Dagstuhl | venues | `Venue.dblp_key` | 🔑 | needed: 550 venues, 40 are parser residue (C11), 87 papers have two (C13) |
+| **arXiv category** (`cs.LG`, `cs.CL`, `stat.ML`) | arXiv | subject areas | `Paper.arxiv_categories`; Topic crosswalk | 🔑 | — |
+| **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | DBMS didn't use them |
 
-## 2. Details
+### Own (12)
 
-### 2.1 Used
+The catalog's identifiers, plus the KG's controlled vocabularies, each a closed list in
+[`vocab/concepts.yaml`](../vocab/concepts.yaml). Every coded value in the graph is on its list,
+97,104 values in all (C9), and every listed code is used (C10).
 
-| Name | Version | Publisher | Licence | Link | Format | Size | Notes |
-|---|---|---|---|---|---|---|---|
-| **ai_research TAXONOMY.md** | git commit (pin in `DataSource`) | Samyama.ai | ⚠️ **no licence file**: ask the lead | github.com/samyama-ai/ai_research | Markdown table | 35 topics | Topic numbers are stable identity, assigned once and never changed. Primary taxonomy. |
-| **arXiv identifier** | current scheme `YYMM.NNNNN` (since 2015) | arXiv / Cornell | metadata CC0 1.0 | info.arxiv.org/help/arxiv_identifier.html | string | 3,081 unique IDs in the catalog; 71% of citations have one | Best join key for papers. Use `arxiv:2406.11779` as `Paper.id`. |
-| **arXiv category taxonomy** | live list | arXiv | metadata CC0 1.0 | arxiv.org/category_taxonomy | web page / API | ~40 `cs.*` categories, plus `stat.ML`, `eess.*` | Fetched per paper from the arXiv API. Gives each Paper its primary and cross-list categories. |
-| **arXiv API** | legacy API | arXiv | metadata CC0; API terms of use | info.arxiv.org/help/api/tou.html | Atom XML | — | **Max 1 request every 3 seconds, one connection.** Batch up to ~100 IDs per request (`id_list`) and cache in `data/`. |
-| **DOI** | ISO 26324 | DOI Foundation / Crossref | identifiers free; Crossref metadata open | doi.org | string | only 8 citations carry one | Store when present. Never guess one. |
-| **ORCID iD** | — | ORCID | public data file CC0 | orcid.org | 16-digit iD | — | Store only when a lookup returns it. Never infer from a name. |
-| **DBLP** | live (dump date recorded) | Schloss Dagstuhl | CC0 1.0 | dblp.org | XML dump / search API | covers NeurIPS, ICML, ICLR, ACL, CVPR… | **Primary person resolution, as in DBMS** (which matched 1,966 researchers to a `dblp_pid` + affiliation). Never merge a bare surname into a full name. |
-| **Crossref** | REST API | Crossref | metadata facts, open | api.crossref.org | JSON | — | Verify references that have a DOI (as DBMS `verify_refs.py`). |
-| **DataCite** | REST API | DataCite | CC0 metadata | api.datacite.org | JSON | — | Verify DOIs that Crossref doesn't hold, e.g. arXiv DOIs `10.48550/…` (as DBMS). |
-
-### 2.2 Followed (patterns, not data)
-
-| Name | Publisher | Licence | Use |
+| Coding system | Codes | Used for | Status |
 |---|---|---|---|
-| **ISO 8601** | ISO | standard (free to follow) | All dates as `YYYY-MM` or `YYYY-MM-DD`. The catalog already uses `YYYY-MM`. |
-| **PROV-O** | W3C | W3C document licence | Property names for provenance: `source`, `source_url`, `retrieved_at`, `method`. Same pattern as the Valuation KG. |
-| **SKOS** | W3C | W3C document licence | Vocabulary for crosswalk edges: `exactMatch` / `closeMatch` / `broadMatch` (see Section 3). |
+| **Topic number** `NN` + slug | 35 (01–35, stable, never reused) | `Topic.number`, `topic:<NN-slug>` | ✅ (C3) |
+| **Problem id** `NN-topic/slug` | 1,000 | `problem:<id>`; children `#assumption-N`, `#gap-N`, `#next-experiment` | ✅ (C1, C2) |
+| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ❌ 1 of 28,960 fails: `venue:` (a venue named `(`) (C1) |
+| `problem_status` | 5 used + `stale` (unused) | `Problem.status` | ✅ |
+| `catalog_provenance` | `synthesized` (all 1,000), `verified` | `Problem.catalog_provenance` | ✅ |
+| `cites_role` | 7 (+ `benchmark` proposed), each mapped to CiTO | `CITES.role` (raw tag in `role_raw`) | ✅ |
+| `gap_kind` | 3 + `unclassified` (41) | `OpenQuestion.kind` | ✅ |
+| `obstruction` | 5 from TEMPLATE.md + `other` | `Obstruction` | ✅ |
+| `assumption_status` | 4 | `Assumption.violated` | ✅ |
+| `name_form` | 4 | `Person.name_form` | ✅ |
+| `institution_kind` | 4 | `Institution.kind` | ✅ |
+| `extraction_method`, `relatedness_method`, `provenance` | 3 · 1 · 1 | `method`, `RELATED_TO.method`, `provenance` | ✅ |
 
-### 2.3 Optional (not in DBMS; add only if needed)
+## Taxonomies
 
-| Name | Version | Publisher | Licence | Use if… |
+| Taxonomy | Levels | In the graph | Follows it? |
+|---|---|---|---|
+| **ai_research TAXONOMY.md** | 35 topics (flat) | `Topic` (35), `IN_TOPIC` (1,000) | ✅ exactly: all 7 checks T1–T7 pass |
+| **Obstruction types** (TEMPLATE.md §6) | 5 + other | `Obstruction` (6), `BLOCKED_BY` (1,448) | ✅ keyword-classified, one primary per problem (O6) |
+| Topic areas *(proposed)* | 6 areas above the 35 topics | `topic_area` in vocab, not built | 64% of `RELATED_TO` links stay inside one area (T11) |
+| Subtopics *(proposed)* | the 166 scope terms below the topics | not built | 18 terms name no problem; 218 problems match no term (T8, T9) |
+
+Conformance in detail, and the seven refinements: **[taxonomy.md](taxonomy.md)**.
+
+**Crosswalks** (all planned; they need external lookups):
+
+| From | To | How | Edge |
+|---|---|---|---|
+| 35 topics | arXiv categories | count the categories of each topic's cited arXiv papers | `(:Topic)-[:MAPS_TO {match: closeMatch}]->(:ArxivCategory)` |
+| 35 topics | OpenAlex topics *(optional)* | top 1–3 OpenAlex topics of each topic's papers | `MAPS_TO {match: broadMatch / closeMatch}` |
+| Authors | DBLP person | DBLP search by title or arXiv id (as DBMS `dblp_*.py`) | `Person.dblp_pid` |
+| Venue names | DBLP stream key | alias table, then DBLP | `Venue.dblp_key` |
+
+## Ontologies (1 own + 7 followed)
+
+**Our ontology** is [`ontology/ai_research_kg.ttl`](../ontology/ai_research_kg.ttl) (OWL/RDFS:
+11 classes, 11 relationships with domain, range and cardinality, id patterns, code lists),
+explained in **[ontology.md](ontology.md)**. The conformance tool checks the graph against the
+file. Result: all classes, relationships, domains and ranges match. Cardinality fails for 87
+papers with two venues (O4).
+
+| Ontology | Publisher | How we use it | Status |
+|---|---|---|---|
+| **SKOS** | W3C | `Topic`, `Obstruction` are `skos:Concept`; `Topic.number` = `skos:notation`; topic areas would be `skos:broader` | 📐 |
+| **PROV-O** | W3C | `source`, `source_url` = `prov:hadPrimarySource`, `method` = the activity, `FROM_SOURCE` = `prov:wasDerivedFrom` | 📐 (gap: `retrieved_at`, below) |
+| **CiTO** (Citation Typing Ontology) | SPAR | `CITES` = `cito:cites`; each `role` maps to a CiTO property | 📐 |
+| **FaBiO** | SPAR | `Paper` ≈ `fabio:ScholarlyWork` | 📐 |
+| **schema.org** | schema.org | `ScholarlyArticle`, `Person`, `Organization`, `Periodical` | 📐 |
+| **DCAT + Dublin Core terms** | W3C, DCMI | `DataSource` ⊂ `dcat:Dataset`; `dcterms:subject / creator / isPartOf / relation` | 📐 |
+| **ORKG** | TIB Hannover | `Problem` ≈ ORKG `Problem` | 📐 |
+
+## Standards and frameworks
+
+### Followed (6)
+
+| Standard | Authority | What it requires here | Follows it? |
+|---|---|---|---|
+| **Naming conventions** (as the DBMS and Valuation KGs) | Samyama KG guide | labels PascalCase singular, edges UPPER_SNAKE, stable deterministic `id` | ✅ (S1, C2) |
+| **PROV-O provenance** (docs/schema.md §4) | W3C | `source`, `provenance`, `method` on every node; `source_url` on page-level nodes | ✅ (S2, S3) |
+| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ❌ **absent on all 28,960 nodes** (S4) |
+| | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
+| **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
+| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8, E1: the engine holds exactly the built graph) |
+| **ISO 8601** | ISO | dates | ✅ (C7) |
+| **CC BY 4.0** (as `dbms_research`) | Creative Commons | licence of the graph | ⚠️ proposed; `ai_research` states no licence, so `DataSource.licence` says "none stated" (S8). Blocks publishing only |
+
+### Later: Responsible AI extension (4)
+
+Recorded so the schema has room for them. **Not loaded in v1.**
+
+| Standard | Version | Publisher | Licence / access | Planned use |
 |---|---|---|---|---|
-| **OpenAlex** | live | OurResearch | CC0 | DBLP misses an author, or to crosswalk our topics to OpenAlex's ~4,516 topics (4 domains → 26 fields → 252 subfields). |
-| **ROR** | v2.x dump | ROR | CC0 1.0 | We want labs joinable with other KGs (`Institution.ror_id`). DBMS kept the affiliation as text from DBLP. |
+| **NIST AI Risk Management Framework** | AI RMF 1.0 (2023) + Generative AI Profile (NIST AI 600-1, 2024) | NIST | US government work, public domain | `RAIFramework`; functions Govern, Map, Measure, Manage as `RAIPrinciple` |
+| **EU AI Act** | Regulation (EU) 2024/1689 | European Union | free to reuse | risk categories and obligations, linked to safety and transparency problems |
+| **ISO/IEC 42001** | 2023 | ISO / IEC | paywalled | name and clause titles only |
+| **OECD AI Principles** | 2019, updated 2024 | OECD | free to read | principles (fairness, transparency, robustness…) as `RAIPrinciple` |
 
-### 2.4 Not used
+## Deliberately not used
 
-| Name | Why |
+| Standard | Why not |
 |---|---|
-| **ACM CCS 2012** | Not used by DBMS. Free only for educational and research use; commercial use needs ACM's permission (www.acm.org/publications/class-2012). |
-| **Semantic Scholar** | Not used by DBMS. Its ODC-BY licence also needs attribution in the README. |
-| **Papers with Code** (tasks, methods, leaderboards) | Shut down on 2025-07-24; it now redirects to Hugging Face Trending Papers. Only a frozen snapshot remains, with no updates. Leaderboards are also **out of scope** (`scope.md`). |
-| **Benchmark leaderboards** (LMArena, HELM…) | Out of scope: the graph is about problems, not model rankings. |
-| **Citation counts** (Google Scholar, S2) | Out of scope (`scope.md`, question 41 must return "no data"). Google Scholar also has no open licence. |
+| **ACM CCS 2012** | Not used by DBMS; free only for educational and research use |
+| **Semantic Scholar** | Not used by DBMS; ODC-BY needs attribution |
+| **Papers with Code** | Shut down 2025-07-24; leaderboards are out of scope (`scope.md`) |
+| **Benchmark leaderboards, citation counts** | Out of scope: the graph is about problems, not rankings (question 41 returns "no data") |
+| **An RDF export of the data** | The ontology is in OWL so it can be checked and aligned; the graph itself stays a property graph |
 
-### 2.5 Later: Responsible AI extension
+## What is in the graph (v1)
 
-These are for the Responsible AI / Explainable AI work that gets merged in later. Record them now so the schema has room for them. **Don't load any of them in v1.**
+| Label | Count | Source in the catalog |
+|---|---:|---|
+| `Problem` | 1,000 | one `topics/NN-*/<slug>.md` file |
+| `Topic` | 35 | `TAXONOMY.md` |
+| `Paper` | 4,932 | Key References (3,081 by arXiv id, 1 by DOI, 1,850 by title hash) |
+| `Person` | 15,097 | author lists, names as written |
+| `Venue` | 550 | venue text, normalised by an alias list |
+| `Institution` | 50 | Current Research, matched against 50 known labs |
+| `Assumption` | 2,499 | Formal Setting "Assumptions" lists |
+| `OpenQuestion` | 3,790 | What Is Not Known |
+| `Obstruction` | 6 | Why It Is Hard |
+| `FutureDirection` | 1,000 | Concrete Next Experiment |
+| `DataSource` | 1 | the catalog, pinned at `a02e87b3` |
 
-| Name | Version | Publisher | Licence / access | Planned use |
-|---|---|---|---|---|
-| **NIST AI Risk Management Framework** | AI RMF 1.0 (Jan 2023) + Generative AI Profile (NIST AI 600-1, 2024) | NIST (US government) | US government work: public domain | `RAIFramework` + its functions (Govern, Map, Measure, Manage) as `RAIPrinciple` |
-| **EU AI Act** | Regulation (EU) 2024/1689 | European Union | EU legal texts are free to reuse | Risk categories and obligations, linked to problems (safety, transparency) |
-| **ISO/IEC 42001** | 2023 | ISO / IEC | **paywalled, copyrighted** | Name and clause titles only, never the text |
-| **OECD AI Principles** | 2019, updated 2024 | OECD | free to read | High-level principles (fairness, transparency, robustness…) as `RAIPrinciple` |
+**62,178 edges** of 11 types; counts per type are in [ontology.md](ontology.md).
 
----
+## Known limits (measured)
 
-## 3. Crosswalks (mappings between systems)
+- **Venues:** 87 papers get two venues from different citations (C13). In 10 of them the catalog
+  contradicts itself (8 ICLR vs ICML, 2 ICML vs NeurIPS). One venue node has the empty id `venue:`.
+- **Assumptions:** 404 problems have none; 189 of them state assumptions in an inline
+  `(i) … (ii) …` form the parser misses (O9).
+- **Provenance:** no `retrieved_at` on nodes, no provenance on edges (S4, S5).
+- **People:** names are as written; 52% are initials or surname only, and nothing is merged.
+- **Topic scope text:** 18 of the 166 scope terms name no problem (T8).
 
-The guide says crosswalks are often the most valuable part. They become `MAPS_TO` edges carrying a SKOS match type.
+The first three need a v1.1 rebuild; they are listed in [taxonomy.md](taxonomy.md) and
+[ontology.md](ontology.md).
 
-| From | To | How it's made | Edge |
-|---|---|---|---|
-| our 35 Topics | arXiv categories | **By hand**, then checked by counting the categories of each topic's cited papers | `(:Topic)-[:MAPS_TO {match: 'closeMatch'}]->(:ArxivCategory)` |
-| our 35 Topics | OpenAlex topics/subfields *(optional)* | Look up the OpenAlex topics of each topic's cited papers and keep the top 1–3 | `(:Topic)-[:MAPS_TO {match: 'broadMatch' / 'closeMatch'}]->(:ExternalTopic)` |
-| Papers (arXiv ID) | OpenAlex work ID | API lookup | `Paper.openalex_id` property |
-| Authors (name + paper) | DBLP person | DBLP search by title/arXiv ID, then take the author list (as DBMS `dblp_*.py`) | `Person.dblp_pid` property |
-| Institutions (name) | ROR ID *(optional)* | ROR API "affiliation" matching, accepting only `chosen: true` matches | `Institution.ror_id` property |
+## Sources (checked 2026-10-07 and 2026-10-09)
 
-**Example:** Topic `20-interpretability` → arXiv `cs.LG` (closeMatch), `cs.AI` (broadMatch) → OpenAlex topic "Explainable Artificial Intelligence (XAI)" (closeMatch).
-
-That example is a **guess to check**. Confirm it by counting the categories of the papers cited by interpretability problems, as the guide says ("measure, don't assert").
-
----
-
-## 4. Minimum set for v1
-
-Answering the `scope.md` questions needs only:
-1. **ai_research TAXONOMY** (topics)
-2. **arXiv ID + arXiv API** (papers, full author names, categories)
-3. **DBLP** (full author names, `dblp_pid`, affiliations), as DBMS did
-4. **Crossref + DataCite** (verify DOIs), as DBMS did
-5. **ISO 8601 + PROV-O** (dates, provenance)
-
-Everything else is optional, on hold, or later.
-
----
-
-## 5. Licence of the graph
-
-- `dbms_research` states **"Content released under CC BY 4.0"** in its README and CLAUDE.md. The published DBMS snapshot follows from that.
-- `ai_research` has **no licence statement at all**: no LICENSE file, and nothing in README or CLAUDE.md.
-- **Proposal:** match DBMS. Add "Content released under CC BY 4.0" to `ai_research` (the same team owns it), and release this graph as CC BY 4.0. **Needs the lead's yes**, because only the owner of `ai_research` can choose its licence.
-
-## 6. Open question (decide before publishing, not before building)
-
-1. OK to add the CC BY 4.0 line to `ai_research`, as in `dbms_research`, and use CC BY 4.0 for this graph? The repo is private, and the licence only matters when the snapshot or repo is published (Phase 9).
-
-## 7. Sources (checked 2026-10-07)
-
-- arXiv licences and API terms: info.arxiv.org/help/license/index.html, info.arxiv.org/help/api/tou.html
-- ACM CCS 2012: www.acm.org/publications/class-2012
-- OpenAlex Topics: help.openalex.org/data/topics
-- ROR data dump: ror.readme.io/docs/data-dump
-- Semantic Scholar licence: api.semanticscholar.org/license
-- DBMS approach: github.com/samyama-ai/dbms_research (README "License", CLAUDE.md, tools/dblp_*.py, tools/verify_refs.py)
-- DBLP licence: dblp.org (CC0)
-- Papers with Code shutdown: coursera.org/articles/papers-with-code
+- arXiv identifiers and licence: info.arxiv.org/help/arxiv_identifier.html, info.arxiv.org/help/license
+- CiTO and FaBiO: sparontologies.github.io/cito, sparontologies.github.io/fabio
+- ORKG class `Problem`: orkg.org/api/classes/Problem (no formal URI; "A situation, person, or thing that needs attention…")
+- SKOS, PROV-O, DCAT: w3.org/TR/skos-reference, w3.org/TR/prov-o, w3.org/TR/vocab-dcat-3
+- DBMS approach: github.com/samyama-ai/dbms_research (README licence, `tools/dblp_*.py`, `tools/verify_refs.py`)
+- ACM CCS: acm.org/publications/class-2012 · Semantic Scholar licence: api.semanticscholar.org/license
+- Reference layout: git.samyama.ai/Samyama.ai/enterprise-valuation-kg `docs/standards.md`

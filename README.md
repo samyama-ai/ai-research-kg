@@ -5,7 +5,7 @@
 > Part of the **Samyama** ecosystem: loaded into and queried with [samyama-graph](https://github.com/samyama-ai/samyama-graph). Sibling of the **DBMS Research KG** (`samyama-graph/case_studies/dbms-research`), built the same way from the sibling catalog.
 
 <a href="LICENSE"><img src="https://img.shields.io/badge/code-Apache_2.0-blue" alt="Code licence"></a>
-Content licence: **to be decided before publishing** (see [`docs/standards.md`](docs/standards.md) §5).
+Content licence: **to be decided before publishing** (see [`docs/standards.md`](docs/standards.md), CC BY 4.0 proposed).
 
 ---
 
@@ -51,6 +51,8 @@ All numbers were measured on engine 1.11.0 on 2026-10-07, from catalog commit `a
 
 See [`schema/ai_research_kg.cypher`](schema/ai_research_kg.cypher), [`docs/schema.md`](docs/schema.md) and [`DATASET_CARD.md`](DATASET_CARD.md).
 
+Standards, coding systems, taxonomies and ontologies in full: **[docs/standards.md](docs/standards.md)**. The ontology as a file: [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl) ([docs/ontology.md](docs/ontology.md)); the code lists: [`vocab/concepts.yaml`](vocab/concepts.yaml); the taxonomy check and refinements: [docs/taxonomy.md](docs/taxonomy.md). Whether the graph keeps all of them is measured by `python -m etl.conformance --url http://127.0.0.1:8090` (report: [docs/conformance.md](docs/conformance.md)).
+
 ## Quick Start
 
 ```bash
@@ -64,7 +66,8 @@ docker run -d --name samyama-ai_research -p 8090:8080 ghcr.io/samyama-ai/samyama
 python -m etl.download_data                         # catalog -> data/ai_research (pinned commit)
 python -m etl.loader --url http://127.0.0.1:8090    # parse + load + verify counts (~30 s)
 python -m benchmarks.queries                        # the scope.md questions, 32 queries
-pytest                                              # parser, invariant and count tests
+python -m etl.conformance --url http://127.0.0.1:8090   # taxonomy/ontology/coding/standards checks
+pytest                                              # parser, invariant, count and standards tests
 
 # optional: portable snapshot, same format as dbms-research.sgsnap
 curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/export
@@ -77,10 +80,13 @@ curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/
 etl/download_data.py   # clone ai_research at the pinned commit
 etl/parse.py           # Markdown -> nodes and edges (all extraction rules live here)
 etl/loader.py          # schema + batched load + count verification
+etl/conformance.py     # checks the graph against taxonomy, ontology, code lists, standards
 etl/count_kg.py        # Phase 1 size estimate (kept for reference)
 schema/                # Cypher schema (indexes)
+ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
+vocab/                 # controlled vocabularies (concepts.yaml)
 benchmarks/queries.py  # query catalog AR01-AR30, AR90-AR91
-docs/                  # scope, schema, standards, engine notes, phase logs
+docs/                  # scope, schema, standards, ontology, taxonomy, conformance, engine notes, logs
 tests/                 # parser tests on fixtures + full-graph invariants
 ```
 
