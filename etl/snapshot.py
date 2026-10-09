@@ -80,7 +80,7 @@ def sha256(path: Path) -> str:
 def _commit() -> str:
     try:
         sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain", "--", ".", ":!snapshots"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no", "--", ".", ":!snapshots"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         return sha + ("-dirty" if dirty else "")
     except OSError:
         return "unknown"
