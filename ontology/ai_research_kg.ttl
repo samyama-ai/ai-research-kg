@@ -1,4 +1,4 @@
-# AI Research KG ontology, v0.1 (2026-10-09)
+# AI Research KG ontology, v0.2 (2026-10-09; v1.1 graph)
 #
 # The graph is a labelled property graph (Samyama, openCypher). This file is its
 # ontology written in OWL/RDFS so that it can be read by other tools and checked:
@@ -29,7 +29,7 @@
 <https://samyama.ai/kg/ai-research/ontology>
     a owl:Ontology ;
     rdfs:label "AI Research KG ontology" ;
-    owl:versionInfo "0.1" ;
+    owl:versionInfo "0.2" ;
     dcterms:created "2026-10-09"^^xsd:date ;
     dcterms:source <https://github.com/samyama-ai/ai_research> ;
     rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." .
@@ -185,6 +185,9 @@ kg:source a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ;
 kg:provenance a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ; kg:codeList "provenance" .
 kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extraction_method" ;
     rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource." .
+kg:retrieved_at a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
+    rdfs:subPropertyOf prov:generatedAtTime ;
+    rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date), so a rebuild gives the same value." .
 kg:source_url a owl:DatatypeProperty ; rdfs:range xsd:anyURI ;
     rdfs:subPropertyOf prov:hadPrimarySource ;
     rdfs:comment "The exact file at the pinned commit the node was read from." .
@@ -199,6 +202,8 @@ kg:number a owl:DatatypeProperty ; rdfs:domain kg:Topic ; rdfs:range xsd:integer
 kg:arxiv_id a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
     rdfs:comment "arXiv identifier YYMM.NNNNN (4 digits after the dot before 2015)." .
 kg:doi a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ; rdfs:subPropertyOf schema:identifier .
+kg:venue_variants a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
+    rdfs:comment "Other venues the catalog gives for the same paper ('; '-separated); APPEARED_AT holds the chosen one." .
 kg:year a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:gYear .
 kg:name_form a owl:DatatypeProperty ; rdfs:domain kg:Person ; rdfs:range xsd:string ; kg:required true ; kg:codeList "name_form" .
 kg:kind_institution a owl:DatatypeProperty ; rdfs:domain kg:Institution ; rdfs:range xsd:string ; kg:required true ; kg:codeList "institution_kind" ;

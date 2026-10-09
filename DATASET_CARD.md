@@ -1,7 +1,7 @@
 # Dataset Card — AI Research KG
 
 ## Summary
-A knowledge graph of 1,000 open problems in AI and machine learning: 28,960 nodes and 62,178 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
+A knowledge graph of 1,000 open problems in AI and machine learning: 29,696 nodes and 62,845 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
 
 ## Source
 

@@ -118,3 +118,29 @@ def test_next_experiment_fields(graph):
 def test_labs_active_on(graph):
     labs = {e[1] for e in graph.edges if e[4] == FIX and e[2] == "ACTIVE_ON"}
     assert labs == {"institution:anthropic", "institution:mit", "institution:google_deepmind"}
+
+
+def test_assumptions_in_all_four_forms():
+    from etl.parse import parse_assumptions
+    inline = "**Assumptions known to be violated.** (i) $T$ is applied to whole prompts — false: templates split. (ii) Tokens are stable — violated in practice.\n"
+    assert [a["violated"] for a in parse_assumptions(inline)] == ["violated", "violated"]
+    prose = "**Assumptions and their status.** Smoothness with a global $L$: *violated* — sharpness grows. Bounded variance: *violated* under heavy tails.\n"
+    assert [a["name"] for a in parse_assumptions(prose)] == ["Smoothness with a global $L$", "Bounded variance"]
+    table = "**Assumptions, and their status:**\n\n| Assumption | Status |\n|---|---|\n| $H \\approx cI$ | **Violated.** wide spectra |\n| i.i.d. data | holds |\n"
+    assert [a["violated"] for a in parse_assumptions(table)] == ["violated", "holds"]
+    listed = "**Assumptions.**\n- *Linear features.* Partly violated.\n- *Fixed data.* Holds.\n"
+    assert [a["name"] for a in parse_assumptions(listed)] == ["Linear features", "Fixed data"]
+
+
+def test_venue_residue_and_aliases():
+    from etl.parse import normalise_venue
+    assert normalise_venue("(") is None
+    assert normalise_venue("USENIX NSDI") == normalise_venue("NSDI") == "NSDI"
+    assert normalise_venue("Communications of the ACM") == "CACM"
+
+
+def test_one_venue_per_paper(graph):
+    from collections import Counter
+    per_paper = Counter(e[1] for e in graph.edges if e[2] == "APPEARED_AT")
+    assert max(per_paper.values()) == 1
+    assert all(n.get("retrieved_at") for nodes in graph.nodes.values() for n in nodes.values())

@@ -197,6 +197,10 @@ VENUE_ALIASES = [  # (canonical, regex)
     ("MLSys", r"\bmlsys\b"), ("OSDI", r"\bosdi\b"), ("SOSP", r"\bsosp\b"),
     ("ASPLOS", r"\basplos\b"), ("ISCA", r"\bisca\b"), ("SC", r"^sc\b|supercomputing"),
     ("Interspeech", r"interspeech"), ("ICASSP", r"\bicassp\b"),
+    ("NSDI", r"\bnsdi\b"), ("FAST", r"usenix fast|^fast\b"), ("USENIX ATC", r"usenix atc"),
+    ("CACM", r"\bcacm\b|communications of the acm"),
+    ("IJCV", r"\bijcv\b|international journal of computer vision"),
+    ("TPAMI", r"\btpami\b|pattern analysis and machine intelligence"),
     ("CAV", r"\bcav\b"), ("USENIX Security", r"usenix security"),
     ("IEEE S&P", r"s&p|security and privacy"), ("CCS", r"\bccs\b"), ("STOC", r"\bstoc\b"), ("FOCS", r"\bfocs\b"), ("SODA", r"\bsoda\b"), ("CHI", r"\bchi\b"),
     ("CoRL", r"\bcorl\b"), ("ICRA", r"\bicra\b"), ("RSS", r"\brss\b"),
@@ -206,10 +210,13 @@ VENUE_ALIASES = [  # (canonical, regex)
 ]
 
 
+PREPRINT_VENUES = {"arXiv", "OpenReview"}
+
+
 def normalise_venue(raw: str) -> str | None:
-    raw = raw.strip(" .,;—-")
-    if not raw:
-        return None
+    raw = raw.strip(" .,;:—–-/(")
+    if not re.search(r"[A-Za-z]{2}", raw) or re.match(r"identifier omitted", raw, re.I):
+        return None  # parser residue such as "(" is not a venue
     low = raw.lower()
     for canonical, pat in VENUE_ALIASES:
         if re.search(pat, low):
@@ -311,7 +318,7 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken", re.I)
+VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken|(?:—|–|:)\s*false\b|\bfalse in practice", re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|approximately|weakly|sometimes|mostly", re.I)
 HOLDS_RE = re.compile(r"\bholds\b|\breasonable\b|\bsafe\b", re.I)
 
@@ -326,18 +333,42 @@ def assumption_status(text: str) -> str:
     return "unstated"
 
 
+ASSUMPTION_HEAD_RE = re.compile(r"^.*?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]*\*\*[:.]?", re.M | re.I)
+INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
+PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
+
+
+def _assumption(item: str) -> dict:
+    nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
+        re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item) or \
+        re.match(r"([^:—]{2,100}?)\s*(?::|—|–| - )\s*(.*)", item)
+    name = _strip_md(nm.group(1)) if nm else " ".join(_strip_md(item).split()[:8])
+    text = _strip_md(item)
+    return {"name": name[:160], "text": text[:1200], "violated": assumption_status(text)}
+
+
 def parse_assumptions(formal: str) -> list[dict]:
-    m = re.search(r"^.*\*\*Assumptions?[^\n]*\n", formal, re.M | re.I)
+    """The "Assumptions" part of Formal Setting, in the four forms the catalog uses:
+    a list under the heading, a table under it, an inline (i)/(ii) list on the
+    heading line, or prose items "Name: *status* — why."."""
+    m = ASSUMPTION_HEAD_RE.search(formal)
     if not m:
         return []
-    out = []
-    for item in list_items(formal[m.end():]):
-        nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
-            re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item)
-        name = _strip_md(nm.group(1)) if nm else " ".join(_strip_md(item).split()[:8])
-        text = _strip_md(item)
-        out.append({"name": name[:160], "text": text[:1200], "violated": assumption_status(text)})
-    return out
+    line_end = formal.find("\n", m.end())
+    inline = formal[m.end(): line_end if line_end != -1 else None].strip()
+    rest = formal[line_end:] if line_end != -1 else ""
+    if inline and INLINE_ENUM_RE.search(inline):
+        items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+    elif inline:
+        items = [p.strip() for p in PROSE_ITEM_RE.split(inline) if p.strip()]
+    else:
+        block = rest.lstrip("\n")
+        if block.startswith("|"):
+            rows = [r for r in block.split("\n\n")[0].splitlines() if r.startswith("|")][2:]
+            items = [" — ".join(c.strip() for c in r.strip("|").split("|")) for r in rows]
+        else:
+            items = list_items(rest)
+    return [_assumption(i) for i in items if len(_strip_md(i)) > 3]
 
 
 def parse_gaps(not_known: str) -> list[dict]:
@@ -479,14 +510,27 @@ def problem_files(root: Path) -> list[Path]:
     return sorted(p for p in (root / "topics").glob("*/*.md") if p.name != "README.md")
 
 
+def catalog_date(root: Path, commit: str) -> str:
+    """Committer date (YYYY-MM-DD) of the catalog commit; the fixture has no git, so 'unknown'."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "log", "-1", "--format=%cs", commit], cwd=root,
+                             capture_output=True, text=True, check=True).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+    return out or "unknown"
+
+
 def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_shared: int = 2) -> Graph:
     g = Graph()
     base_url = f"{REPO_WEB}/blob/{commit}"
-    common = {"provenance": "real", "source": SOURCE}
+    # PROV-O generatedAtTime: the date of the catalog version every fact is read from
+    # (the pinned commit), so a rebuild gives the same value
+    common = {"provenance": "real", "source": SOURCE, "retrieved_at": catalog_date(root, commit)}
 
     g.add_node("DataSource", "datasource:ai_research", name="ai_research catalog",
-               url=REPO_WEB, version=commit, licence="none stated (see docs/standards.md)",
-               provenance="real", source=SOURCE)
+               url=REPO_WEB, version=commit, licence="none stated (see docs/standards.md)", **common)
 
     topic_ids = {}
     for t in parse_taxonomy(root):
@@ -518,6 +562,19 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
             return f"paper:doi:{r['doi'].lower()}"
         return f"paper:t:{short_hash(_norm_title(r['title']))}"
 
+    # one venue per paper, chosen over all its citations: a named venue beats a
+    # preprint server, then the most frequent, then the first seen
+    seen_venues: dict[str, list[str]] = defaultdict(list)
+    for refs in raw_refs.values():
+        for r in refs:
+            if r["venue"]:
+                seen_venues[paper_id(r)].append(r["venue"])
+    paper_venue: dict[str, tuple[str, list[str]]] = {}
+    for ppid, names in seen_venues.items():
+        counts = Counter(names)
+        ranked = sorted(dict.fromkeys(names), key=lambda v: (v in PREPRINT_VENUES, -counts[v]))
+        paper_venue[ppid] = (ranked[0], [v for v in ranked[1:] if v not in PREPRINT_VENUES])
+
     problem_papers: dict[str, set[str]] = {}
 
     for path, text in texts.items():
@@ -545,8 +602,10 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
         for pos, r in enumerate(raw_refs[str(path)], start=1):
             ppid = paper_id(r)
             papers_here.add(ppid)
+            venue, variants = paper_venue.get(ppid, (None, []))
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
-                       doi=r["doi"], venue=r["venue"], venue_raw=r["venue_raw"],
+                       doi=r["doi"], venue=venue, venue_raw=r["venue_raw"],
+                       venue_variants="; ".join(variants) or None,
                        authors_raw=r["authors_raw"], method="parsed",
                        source_url=src_url, **common)
             g.add_edge("Problem", pid, "CITES", "Paper", ppid,
@@ -556,9 +615,9 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
                                     name_form=name_form(name), method="parsed",
                                     source_url=src_url, **common)
                 g.add_edge("Paper", ppid, "AUTHORED_BY", "Person", person, {"position": apos})
-            if r["venue"]:
-                vid = f"venue:{slug(r['venue'])}"
-                g.add_node("Venue", vid, name=r["venue"], method="parsed",
+            if venue:
+                vid = f"venue:{slug(venue)}"
+                g.add_node("Venue", vid, name=venue, method="parsed",
                            source_url=src_url, **common)
                 g.add_edge("Paper", ppid, "APPEARED_AT", "Venue", vid)
         problem_papers[pid] = papers_here

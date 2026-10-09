@@ -408,12 +408,10 @@ def check_coding(r: Report, g: Graph, onto: dict, vocab: dict) -> None:
     r.add(S, "C11", "Venue names are clean venue names (no parser residue)", residue,
           f"{len(venues)} venues, {sum(1 for v in venues if per_venue[v] == 1)} with a single paper; "
           f"{len(residue)} look like residue", info=True)
-    paper_venues = defaultdict(list)
-    for e in edges_by_type(g)["APPEARED_AT"]:
-        paper_venues[e[1]].append(venues[e[4]]["name"])
-    pairs = Counter(" vs ".join(sorted(v)) for v in paper_venues.values() if len(v) > 1)
-    r.add(S, "C13", "Papers given two venues by different citations (alias gap, arXiv vs venue, or the catalog disagreeing)",
-          [f"{p} ({n})" for p, n in pairs.most_common()], f"{sum(pairs.values())} papers", info=True, limit=8)
+    variants = Counter(f"{p['venue']} vs {p['venue_variants']}" for p in g.nodes["Paper"].values()
+                       if p.get("venue_variants"))
+    r.add(S, "C13", "Papers the catalog gives other venues for (kept in Paper.venue_variants; APPEARED_AT holds the chosen one)",
+          [f"{p} ({n})" for p, n in variants.most_common()], f"{sum(variants.values())} papers", info=True, limit=8)
     persons = g.nodes["Person"]
     short = sum(1 for p in persons.values() if p["name_form"] in ("initials", "surname"))
     r.add(S, "C12", "Person identity: share of names that are initials or surname only (no DBLP/ORCID id in v1)", [],
@@ -437,7 +435,8 @@ def check_standards(r: Report, g: Graph) -> None:
           + ") have no single page, by design")
     r.add(S, "S4", "PROV-O: `retrieved_at` (prov:generatedAtTime) on every node, as docs/schema.md §4 requires",
           sorted({l for l, nodes in g.nodes.items() for n in nodes.values() if not n.get("retrieved_at")}),
-          f"absent on all {sum(len(v) for v in g.nodes.values()):,} nodes")
+          f"{sum(1 for v in g.nodes.values() for n in v.values() if n.get('retrieved_at')):,} of "
+          f"{sum(len(v) for v in g.nodes.values()):,} nodes carry it")
     r.add(S, "S5", "Edges carry provenance (docs/schema.md §4: 'every node and edge'); today only the problem page at the edge's source implies it",
           sorted({e[2] for e in g.edges if not (e[5] or {}).get("source")}),
           "no edge carries `source`", info=True)

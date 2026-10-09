@@ -22,12 +22,9 @@ from etl.download_data import CATALOG_DIR, PINNED_COMMIT
 
 SCHEMA = Path(__file__).resolve().parent.parent / "schema" / "ai_research_kg.cypher"
 
-# Rules the v1 graph breaks today (docs/conformance.md). Fixing one must remove it here.
-KNOWN_FAILURES = {
-    "O4",  # 87 papers have two APPEARED_AT venues
-    "C1",  # one Venue id is "venue:" (venue name "(")
-    "S4",  # no node carries retrieved_at
-}
+# Rules the graph breaks today (docs/conformance.md); v1.1 fixed the three v1 failures
+# (two venues per paper, the empty id "venue:", no retrieved_at). A new one must be listed here.
+KNOWN_FAILURES: set[str] = set()
 
 
 @pytest.fixture(scope="module")

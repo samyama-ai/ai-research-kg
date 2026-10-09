@@ -1,6 +1,6 @@
 # AI Research Knowledge Graph
 
-**28,960 nodes. 62,178 edges.** 1,000 open problems in AI and machine learning, with the papers, people, labs, assumptions, gaps and next experiments around them, from 1 source.
+**29,696 nodes. 62,845 edges.** 1,000 open problems in AI and machine learning, with the papers, people, labs, assumptions, gaps and next experiments around them, from 1 source.
 
 > Part of the **Samyama** ecosystem: loaded into and queried with [samyama-graph](https://github.com/samyama-ai/samyama-graph). Sibling of the **DBMS Research KG** (`samyama-graph/case_studies/dbms-research`), built the same way from the sibling catalog.
 
@@ -43,7 +43,7 @@ All numbers were measured on engine 1.11.0 on 2026-10-07, from catalog commit `a
 
 ## Schema
 
-**Node labels** (11): Problem 1,000 · Topic 35 · Paper 4,932 · Person 15,097 · Venue 550 · Institution 50 · Assumption 2,499 · OpenQuestion 3,790 · Obstruction 6 · FutureDirection 1,000 · DataSource 1
+**Node labels** (11): Problem 1,000 · Topic 35 · Paper 4,932 · Person 15,097 · Venue 522 · Institution 50 · Assumption 3,263 · OpenQuestion 3,790 · Obstruction 6 · FutureDirection 1,000 · DataSource 1
 
 **Edge types** (11): `IN_TOPIC` · `CITES {role}` · `AUTHORED_BY` · `APPEARED_AT` · `RESTS_ON` · `HAS_GAP {kind on target}` · `BLOCKED_BY` · `HAS_NEXT_EXPERIMENT` · `ACTIVE_ON` · `RELATED_TO` (computed from shared papers) · `FROM_SOURCE`
 
@@ -69,8 +69,10 @@ python -m benchmarks.queries                        # the scope.md questions, 32
 python -m etl.conformance --url http://127.0.0.1:8090   # taxonomy/ontology/coding/standards checks
 pytest                                              # parser, invariant, count and standards tests
 
-# optional: portable snapshot, same format as dbms-research.sgsnap
-curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/export
+# snapshot: export the loaded graph + write snapshots/manifest.json (counts, SHA-256, commit)
+python -m etl.snapshot export --url http://127.0.0.1:8090
+# ...or skip the build: load a shared .sgsnap into a FRESH server (refuses a non-empty one)
+python -m etl.snapshot import --url http://127.0.0.1:8090
 ```
 
 `python -m etl.parse` builds the graph without an engine and writes `data/graph.json`.
@@ -81,6 +83,7 @@ etl/download_data.py   # clone ai_research at the pinned commit
 etl/parse.py           # Markdown -> nodes and edges (all extraction rules live here)
 etl/loader.py          # schema + batched load + count verification
 etl/conformance.py     # checks the graph against taxonomy, ontology, code lists, standards
+etl/snapshot.py        # export/import the .sgsnap, write and check snapshots/manifest.json
 etl/count_kg.py        # Phase 1 size estimate (kept for reference)
 schema/                # Cypher schema (indexes)
 ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
