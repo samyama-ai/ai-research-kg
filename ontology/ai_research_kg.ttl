@@ -30,7 +30,11 @@
     a owl:Ontology ;
     rdfs:label "AI Research KG ontology" ;
     owl:versionInfo "0.2" ;
+    owl:versionIRI <https://samyama.ai/kg/ai-research/ontology/0.2> ;
+    owl:priorVersion <https://samyama.ai/kg/ai-research/ontology/0.1> ;
     dcterms:created "2026-10-09"^^xsd:date ;
+    dcterms:modified "2026-10-09"^^xsd:date ;
+    rdfs:comment "0.2 (v1.1 graph): adds retrieved_at (required), source_date and venue_variants." ;
     dcterms:source <https://github.com/samyama-ai/ai_research> ;
     rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." .
 
@@ -186,8 +190,11 @@ kg:provenance a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true 
 kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extraction_method" ;
     rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource." .
 kg:retrieved_at a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
-    rdfs:subPropertyOf prov:generatedAtTime ;
-    rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date), so a rebuild gives the same value." .
+    rdfs:seeAlso prov:generatedAtTime ;
+    rdfs:comment "Date the pinned catalog commit was fetched (git's reflog for the checkout). A date, not a time, so it is not declared a sub-property of prov:generatedAtTime (range xsd:dateTime)." .
+kg:source_date a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
+    rdfs:subPropertyOf dcterms:date ;
+    rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date); the same on every rebuild." .
 kg:source_url a owl:DatatypeProperty ; rdfs:range xsd:anyURI ;
     rdfs:subPropertyOf prov:hadPrimarySource ;
     rdfs:comment "The exact file at the pinned commit the node was read from." .

@@ -433,10 +433,12 @@ def check_standards(r: Report, g: Graph) -> None:
           [f"{l}: {n}" for l, n in no_url.items() if l not in ("Institution", "Obstruction", "DataSource")],
           "pass; shared nodes (" + ", ".join(f"{l} {n}" for l, n in sorted(no_url.items()))
           + ") have no single page, by design")
-    r.add(S, "S4", "PROV-O: `retrieved_at` (prov:generatedAtTime) on every node, as docs/schema.md §4 requires",
-          sorted({l for l, nodes in g.nodes.items() for n in nodes.values() if not n.get("retrieved_at")}),
-          f"{sum(1 for v in g.nodes.values() for n in v.values() if n.get('retrieved_at')):,} of "
-          f"{sum(len(v) for v in g.nodes.values()):,} nodes carry it")
+    r.add(S, "S4", "PROV-O dates on every node, as docs/schema.md §4 requires: `retrieved_at` (when the pinned "
+          "catalog was fetched) and `source_date` (the date of that catalog version)",
+          sorted({l for l, nodes in g.nodes.items() for n in nodes.values()
+                  if not n.get("retrieved_at") or not n.get("source_date")}),
+          f"{sum(1 for v in g.nodes.values() for n in v.values() if n.get('retrieved_at') and n.get('source_date')):,} of "
+          f"{sum(len(v) for v in g.nodes.values()):,} nodes carry both")
     r.add(S, "S5", "Edges carry provenance (docs/schema.md §4: 'every node and edge'); today only the problem page at the edge's source implies it",
           sorted({e[2] for e in g.edges if not (e[5] or {}).get("source")}),
           "no edge carries `source`", info=True)

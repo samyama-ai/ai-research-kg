@@ -117,7 +117,8 @@ Core property-graph model for open AI research problems, their evidence, and the
 | `catalog_provenance` | `synthesized` / `verified` | The catalog's own flag on the **prose** quality. All 1,000 are `synthesized` today. |
 | `source` | `ai_research`, `arxiv-api`, `computed` | Named origin |
 | `source_url` | `https://github.com/samyama-ai/ai_research/blob/<commit>/topics/...md` | Exact file it came from |
-| `retrieved_at` | `2026-10-05T12:00:00Z` | When it was read |
+| `retrieved_at` | `2026-10-07` | When the pinned catalog was fetched (a date; built in v1.1) |
+| `source_date` | `2026-09-10` | The date of that catalog version (the pinned commit's date; v1.1) |
 | `method` | `parsed` / `resolved` / `llm-extracted` / `computed` | How the value was produced |
 | `confidence` | `high` / `medium` / `low` | `parsed` = high; `llm-extracted` = medium; fuzzy matches = low |
 | `verified` | `false` | Set where a fact could not be confirmed (guide rule) |

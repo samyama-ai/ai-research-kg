@@ -144,3 +144,35 @@ def test_one_venue_per_paper(graph):
     per_paper = Counter(e[1] for e in graph.edges if e[2] == "APPEARED_AT")
     assert max(per_paper.values()) == 1
     assert all(n.get("retrieved_at") for nodes in graph.nodes.values() for n in nodes.values())
+
+
+def test_assumption_heading_rules():
+    from etl.parse import parse_assumptions
+    # a heading mid-paragraph still counts; bold emphasis that merely mentions assumptions does not
+    mid = "Both cannot hold. **Assumptions known to be violated:** (i) Language ID is known — false. (ii) Test data is human — violated.\n"
+    assert len(parse_assumptions(mid)) == 2
+    emphasis = "This **assumption is load-bearing** for the bound.\n- not an assumption list\n"
+    assert parse_assumptions(emphasis) == []
+    # intro text on the heading line does not hide the list under it
+    intro = "**Assumptions and their status:** the first matters most.\n\n- *Linear features.* Violated.\n- *Fixed data.* Holds.\n\nLater prose.\n- unrelated list\n"
+    assert [a["name"] for a in parse_assumptions(intro)] == ["Linear features", "Fixed data"]
+
+
+def test_assumption_verdict_words():
+    from etl.parse import assumption_status
+    assert assumption_status("Heads are independent. False — subspaces overlap.") == "violated"
+    assert assumption_status("Rare: false positives are filtered out by a second pass.") == "unstated"
+    assert assumption_status("True for post-LN models; false for rotated models.") == "partly"
+
+
+def test_fast_alias_is_not_any_word_fast():
+    from etl.parse import normalise_venue
+    assert normalise_venue("USENIX FAST") == "FAST"
+    assert normalise_venue("Fast Company") == "Fast Company"
+
+
+def test_venue_raw_matches_the_chosen_venue(graph):
+    from etl.parse import normalise_venue
+    for p in graph.nodes["Paper"].values():
+        if p.get("venue") and p.get("venue_raw"):
+            assert normalise_venue(p["venue_raw"]) == p["venue"], p["id"]

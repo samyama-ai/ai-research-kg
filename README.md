@@ -37,7 +37,7 @@ And why problems stay open, which the catalog names in "Why It Is Hard":
 | Compute cost | 131 |
 | Evaluation does not measure what it names | 104 |
 
-All numbers were measured on engine 1.11.0 on 2026-10-07, from catalog commit `a02e87b3`. `benchmarks/queries.py` reproduces them.
+All numbers were measured on engine 1.11.0 on 2026-10-09 (v1.1), from catalog commit `a02e87b3`. `benchmarks/queries.py` reproduces them.
 
 ---
 
@@ -71,8 +71,20 @@ pytest                                              # parser, invariant, count a
 
 # snapshot: export the loaded graph + write snapshots/manifest.json (counts, SHA-256, commit)
 python -m etl.snapshot export --url http://127.0.0.1:8090
-# ...or skip the build: load a shared .sgsnap into a FRESH server (refuses a non-empty one)
-python -m etl.snapshot import --url http://127.0.0.1:8090
+```
+
+### Or skip the build: load the snapshot
+
+The built graph is shared as `ai-research.sgsnap` (3.5 MB), **outside git** like the other KGs'
+snapshots. Ask the maintainers for it; where it will be hosted is being decided in issue #6.
+`snapshots/manifest.json` records its SHA-256 and counts. Put the file in `snapshots/` and import
+it into a **fresh** server (import appends, so `etl.snapshot import` refuses a non-empty one and
+checks every count against the manifest afterwards):
+
+```bash
+docker run -d --name samyama-ai_research-snap -p 8092:8080 ghcr.io/samyama-ai/samyama-graph:latest \
+  samyama --host 0.0.0.0 --cors-origin https://graph.samyama.cloud
+python -m etl.snapshot import --url http://127.0.0.1:8092
 ```
 
 `python -m etl.parse` builds the graph without an engine and writes `data/graph.json`.

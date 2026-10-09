@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -197,7 +198,7 @@ VENUE_ALIASES = [  # (canonical, regex)
     ("MLSys", r"\bmlsys\b"), ("OSDI", r"\bosdi\b"), ("SOSP", r"\bsosp\b"),
     ("ASPLOS", r"\basplos\b"), ("ISCA", r"\bisca\b"), ("SC", r"^sc\b|supercomputing"),
     ("Interspeech", r"interspeech"), ("ICASSP", r"\bicassp\b"),
-    ("NSDI", r"\bnsdi\b"), ("FAST", r"usenix fast|^fast\b"), ("USENIX ATC", r"usenix atc"),
+    ("NSDI", r"\bnsdi\b"), ("FAST", r"usenix fast|^fast(?:\s*'?\d{2,4})?$"), ("USENIX ATC", r"usenix atc"),
     ("CACM", r"\bcacm\b|communications of the acm"),
     ("IJCV", r"\bijcv\b|international journal of computer vision"),
     ("TPAMI", r"\btpami\b|pattern analysis and machine intelligence"),
@@ -318,13 +319,16 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken|(?:—|–|:)\s*false\b|\bfalse in practice", re.I)
+VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken|(?:—|–|:)\s*false\b(?!\s+(?:positives?|alarms?|discover))|(?:^|[.;]\s+)false\b|\bfalse in practice", re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|approximately|weakly|sometimes|mostly", re.I)
 HOLDS_RE = re.compile(r"\bholds\b|\breasonable\b|\bsafe\b", re.I)
 
 
+MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b", re.I)   # "true for X ...; false for Y"
+
+
 def assumption_status(text: str) -> str:
-    if PARTLY_RE.search(text) and VIOLATED_RE.search(text):
+    if (PARTLY_RE.search(text) or MIXED_RE.search(text)) and VIOLATED_RE.search(text):
         return "partly"
     if VIOLATED_RE.search(text):
         return "violated"
@@ -333,7 +337,10 @@ def assumption_status(text: str) -> str:
     return "unstated"
 
 
-ASSUMPTION_HEAD_RE = re.compile(r"^.*?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]*\*\*[:.]?", re.M | re.I)
+# a heading, not emphasis: bold that starts with "Assumption(s)" and ends with ":" or "." (inside
+# or right after the bold). It may sit mid-paragraph, as it does on many pages
+ASSUMPTION_HEAD_RE = re.compile(
+    r"\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?(?:[:.]\*\*|\*\*[:.])", re.I)
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
 PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
 
@@ -347,6 +354,20 @@ def _assumption(item: str) -> dict:
     return {"name": name[:160], "text": text[:1200], "violated": assumption_status(text)}
 
 
+def _first_block(text: str) -> str:
+    """The list or table directly under a heading: up to the first blank line that is not
+    followed by another list item, table row or indented continuation."""
+    lines = text.lstrip("\n").splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            nxt = next((l for l in lines[i + 1:] if l.strip()), "")
+            if not re.match(r"\s*(?:-|\*|\d+\.|\|)\s*\S", nxt):
+                break
+        out.append(line)
+    return "\n".join(out)
+
+
 def parse_assumptions(formal: str) -> list[dict]:
     """The "Assumptions" part of Formal Setting, in the four forms the catalog uses:
     a list under the heading, a table under it, an inline (i)/(ii) list on the
@@ -356,18 +377,18 @@ def parse_assumptions(formal: str) -> list[dict]:
         return []
     line_end = formal.find("\n", m.end())
     inline = formal[m.end(): line_end if line_end != -1 else None].strip()
-    rest = formal[line_end:] if line_end != -1 else ""
+    below = _first_block(formal[line_end:] if line_end != -1 else "")
     if inline and INLINE_ENUM_RE.search(inline):
         items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+    elif below.startswith("|"):
+        rows = [r for r in below.splitlines() if r.startswith("|")][2:]
+        items = [" — ".join(c.strip() for c in r.strip("|").split("|")) for r in rows]
+    elif re.match(r"(?:-|\*|\d+\.)\s+\S", below):
+        items = list_items(below)          # text on the heading line is then an introduction
     elif inline:
         items = [p.strip() for p in PROSE_ITEM_RE.split(inline) if p.strip()]
     else:
-        block = rest.lstrip("\n")
-        if block.startswith("|"):
-            rows = [r for r in block.split("\n\n")[0].splitlines() if r.startswith("|")][2:]
-            items = [" — ".join(c.strip() for c in r.strip("|").split("|")) for r in rows]
-        else:
-            items = list_items(rest)
+        items = []
     return [_assumption(i) for i in items if len(_strip_md(i)) > 3]
 
 
@@ -510,24 +531,29 @@ def problem_files(root: Path) -> list[Path]:
     return sorted(p for p in (root / "topics").glob("*/*.md") if p.name != "README.md")
 
 
-def catalog_date(root: Path, commit: str) -> str:
-    """Committer date (YYYY-MM-DD) of the catalog commit; the fixture has no git, so 'unknown'."""
-    import subprocess
-
+def _git(root: Path, *args: str) -> str:
     try:
-        out = subprocess.run(["git", "log", "-1", "--format=%cs", commit], cwd=root,
-                             capture_output=True, text=True, check=True).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "unknown"
-    return out or "unknown"
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True,
+                              check=True, timeout=30).stdout.strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, NotADirectoryError):
+        return ""
+
+
+def catalog_dates(root: Path, commit: str) -> tuple[str, str]:
+    """(retrieved_at, source_date), both YYYY-MM-DD. retrieved_at is when the pinned commit was
+    checked out here (git's reflog for HEAD), source_date the commit's own date. A checkout
+    without git (the test fixture) gives 'unknown' for both."""
+    source_date = _git(root, "log", "-1", "--format=%cs", commit) or "unknown"
+    m = re.search(r"@\{(\d{4}-\d{2}-\d{2})\}", _git(root, "log", "-g", "-1", "--date=short", "--format=%gd", "HEAD"))
+    return (m.group(1) if m else "unknown"), source_date
 
 
 def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_shared: int = 2) -> Graph:
     g = Graph()
     base_url = f"{REPO_WEB}/blob/{commit}"
-    # PROV-O generatedAtTime: the date of the catalog version every fact is read from
-    # (the pinned commit), so a rebuild gives the same value
-    common = {"provenance": "real", "source": SOURCE, "retrieved_at": catalog_date(root, commit)}
+    # provenance dates: when the pinned catalog was fetched, and the date of that version
+    retrieved_at, source_date = catalog_dates(root, commit)
+    common = {"provenance": "real", "source": SOURCE, "retrieved_at": retrieved_at, "source_date": source_date}
 
     g.add_node("DataSource", "datasource:ai_research", name="ai_research catalog",
                url=REPO_WEB, version=commit, licence="none stated (see docs/standards.md)", **common)
@@ -565,10 +591,12 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
     # one venue per paper, chosen over all its citations: a named venue beats a
     # preprint server, then the most frequent, then the first seen
     seen_venues: dict[str, list[str]] = defaultdict(list)
+    venue_raw_of: dict[tuple[str, str], str | None] = {}
     for refs in raw_refs.values():
         for r in refs:
             if r["venue"]:
                 seen_venues[paper_id(r)].append(r["venue"])
+                venue_raw_of.setdefault((paper_id(r), r["venue"]), r["venue_raw"])
     paper_venue: dict[str, tuple[str, list[str]]] = {}
     for ppid, names in seen_venues.items():
         counts = Counter(names)
@@ -604,7 +632,8 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
             papers_here.add(ppid)
             venue, variants = paper_venue.get(ppid, (None, []))
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
-                       doi=r["doi"], venue=venue, venue_raw=r["venue_raw"],
+                       doi=r["doi"], venue=venue,
+                       venue_raw=venue_raw_of.get((ppid, venue)) if venue else r["venue_raw"],
                        venue_variants="; ".join(variants) or None,
                        authors_raw=r["authors_raw"], method="parsed",
                        source_url=src_url, **common)
@@ -687,8 +716,6 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
 
 
 def main() -> None:
-    import subprocess
-
     from etl.download_data import CATALOG_DIR
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=CATALOG_DIR, check=True,
                             capture_output=True, text=True).stdout.strip()

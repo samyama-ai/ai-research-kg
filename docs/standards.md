@@ -108,7 +108,7 @@ file. Result: all classes, relationships, domains, ranges and cardinalities matc
 |---|---|---|---|
 | **Naming conventions** (as the DBMS and Valuation KGs) | Samyama KG guide | labels PascalCase singular, edges UPPER_SNAKE, stable deterministic `id` | ✅ (S1, C2) |
 | **PROV-O provenance** (docs/schema.md §4) | W3C | `source`, `provenance`, `method` on every node; `source_url` on page-level nodes | ✅ (S2, S3) |
-| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ✅ all 29,696 nodes (S4): the date of the pinned catalog commit, so a rebuild gives the same graph |
+| | | `retrieved_at` (when the pinned catalog was fetched, 2026-10-07) and `source_date` (the date of that version, 2026-09-10) on every node | ✅ all 29,696 nodes (S4). Both come from git, so a rebuild from the same checkout gives the same graph |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
 | **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8, E1: the engine holds exactly the built graph) |
