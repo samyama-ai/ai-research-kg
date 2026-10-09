@@ -1,0 +1,39 @@
+{
+ "file": "ai-research.sgsnap",
+ "bytes": 3617778,
+ "sha256": "bb55c263a4a74ae2ba391151f380f30649a4e7948697f2ed0c4bf97822c95c50",
+ "created": "2026-10-09T06:44:21+00:00",
+ "commit": "57e7f0fb6cae5383177185d6309b91fc0c222518",
+ "engine_version": "1.11.0",
+ "graph": "default",
+ "catalog": "github.com/samyama-ai/ai_research",
+ "catalog_commit": "a02e87b368016fd9568ba5ae8561ea601a8dee41",
+ "nodes": 29696,
+ "edges": 62845,
+ "labels": {
+  "Assumption": 3263,
+  "DataSource": 1,
+  "FutureDirection": 1000,
+  "Institution": 50,
+  "Obstruction": 6,
+  "OpenQuestion": 3790,
+  "Paper": 4932,
+  "Person": 15097,
+  "Problem": 1000,
+  "Topic": 35,
+  "Venue": 522
+ },
+ "relationships": {
+  "ACTIVE_ON": 2483,
+  "APPEARED_AT": 4365,
+  "AUTHORED_BY": 28753,
+  "BLOCKED_BY": 1448,
+  "CITES": 12615,
+  "FROM_SOURCE": 1000,
+  "HAS_GAP": 3790,
+  "HAS_NEXT_EXPERIMENT": 1000,
+  "IN_TOPIC": 1000,
+  "RELATED_TO": 3128,
+  "RESTS_ON": 3263
+ }
+}
