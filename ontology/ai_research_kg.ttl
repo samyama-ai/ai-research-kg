@@ -1,11 +1,15 @@
-# AI Research KG ontology, v0.1 (2026-10-09)
+# AI Research KG ontology, v0.1.1 (2026-10-12; first written 2026-10-09)
 #
 # The graph is a labelled property graph (Samyama, openCypher). This file is its
 # ontology written in OWL/RDFS so that it can be read by other tools and checked:
 #   - every node label is an owl:Class, every edge type an owl:ObjectProperty
 #     with rdfs:domain / rdfs:range, every node property an owl:DatatypeProperty;
 #   - kg:minCount / kg:maxCount give the cardinality the loader promises;
-#   - skos:closeMatch / rdfs:subPropertyOf link to published ontologies we follow.
+#   - rdfs:subClassOf / rdfs:subPropertyOf link to published ontologies where ours is a
+#     narrower term, rdfs:seeAlso where it is only similar (skos:closeMatch is for SKOS
+#     concepts, not for classes or properties);
+#   - kg:propertyName gives a property's name in the graph when two classes share one
+#     (`kind`); kg:notRequiredOn lists the classes a required property may be missing from.
 # etl/conformance.py reads this file and checks the graph against it.
 # Human-readable version: docs/ontology.md.
 #
@@ -29,8 +33,9 @@
 <https://samyama.ai/kg/ai-research/ontology>
     a owl:Ontology ;
     rdfs:label "AI Research KG ontology" ;
-    owl:versionInfo "0.1" ;
+    owl:versionInfo "0.1.1" ;
     dcterms:created "2026-10-09"^^xsd:date ;
+    dcterms:modified "2026-10-12"^^xsd:date ;
     dcterms:source <https://github.com/samyama-ai/ai_research> ;
     rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." .
 
@@ -44,14 +49,16 @@ kg:idPattern a owl:AnnotationProperty ; rdfs:comment "Regular expression every i
 kg:required a owl:AnnotationProperty ; rdfs:comment "true when every node of the domain class carries the property." .
 kg:computed a owl:AnnotationProperty ; rdfs:comment "true when the edge is computed, not stated in the source." .
 kg:onEdge a owl:AnnotationProperty ; rdfs:comment "true when the property is carried by an edge, not a node." .
+kg:propertyName a owl:AnnotationProperty ; rdfs:comment "The property's name in the graph when it differs from the local name here (two classes both carry a `kind`). rdfs:label is only a label." .
+kg:notRequiredOn a owl:AnnotationProperty ; rdfs:comment "A class that a kg:required property without a domain may be missing from." .
 
 # --------------------------------------------------------------------------- #
 # Classes (node labels)
 # --------------------------------------------------------------------------- #
 kg:Problem a owl:Class ;
     rdfs:label "Problem" ;
-    rdfs:comment "One open AI research problem: one page of the catalog." ;
-    skos:closeMatch orkg:Problem ;
+    rdfs:comment "One open AI research problem: one page of the catalog. The nearest published class is ORKG's Problem, which has no formal URI, so the link is rdfs:seeAlso." ;
+    rdfs:seeAlso orkg:Problem ;
     kg:idPattern "^problem:\\d{2}-[a-z0-9-]+/[a-z0-9-]+$" .
 
 kg:Topic a owl:Class ;
@@ -62,26 +69,29 @@ kg:Topic a owl:Class ;
 
 kg:Paper a owl:Class ;
     rdfs:label "Paper" ;
-    rdfs:comment "A publication cited by at least one problem." ;
-    skos:closeMatch schema:ScholarlyArticle, fabio:ScholarlyWork ;
-    kg:idPattern "^paper:(arxiv:\\d{4}\\.\\d{4,5}|doi:10\\.\\d{4,9}/\\S+|t:[0-9a-f]+)$" .
+    rdfs:subClassOf fabio:ScholarlyWork ;
+    rdfs:seeAlso schema:ScholarlyArticle ;
+    rdfs:comment "A publication cited by at least one problem. arXiv ids may be new style (2406.11779) or old style (cs/0112017)." ;
+    kg:idPattern "^paper:(arxiv:(\\d{4}\\.\\d{4,5}|[a-z-]+(\\.[A-Z]{2})?/\\d{7})|doi:10\\.\\d{4,9}/\\S+|t:[0-9a-f]+)$" .
 
 kg:Person a owl:Class ;
     rdfs:label "Person" ;
-    rdfs:comment "An author as written in a reference; not resolved to a real-world identity in v1." ;
-    skos:closeMatch schema:Person, foaf:Agent ;
+    rdfs:subClassOf foaf:Agent ;
+    rdfs:seeAlso schema:Person ;
+    rdfs:comment "An author as written in a reference; not resolved to a real-world identity in v1. A foaf:Agent, not a schema:Person, because 19 are collectives such as 'Llama Team' (name_form = collective)." ;
     kg:idPattern "^person:[a-z0-9_]+$" .
 
 kg:Venue a owl:Class ;
     rdfs:label "Venue" ;
-    rdfs:comment "Where a paper appeared: conference, journal, workshop, preprint server or report series." ;
-    skos:closeMatch schema:Periodical, schema:EventSeries ;
+    rdfs:comment "Where a paper appeared: conference, journal, workshop, preprint server or report series. Similar to schema:Periodical (journals) and schema:EventSeries (conferences), but one class covers both, so neither is a superclass." ;
+    rdfs:seeAlso schema:Periodical, schema:EventSeries ;
     kg:idPattern "^venue:[a-z0-9_]+$" .
 
 kg:Institution a owl:Class ;
     rdfs:label "Institution" ;
+    rdfs:subClassOf foaf:Organization ;
+    rdfs:seeAlso schema:Organization ;
     rdfs:comment "A lab, company or university named in a problem's Current Research section." ;
-    skos:closeMatch schema:Organization, foaf:Organization ;
     kg:idPattern "^institution:[a-z0-9_]+$" .
 
 kg:Assumption a owl:Class ;
@@ -151,7 +161,7 @@ kg:HAS_GAP a owl:ObjectProperty ;
 kg:BLOCKED_BY a owl:ObjectProperty ;
     rdfs:domain kg:Problem ; rdfs:range kg:Obstruction ;
     kg:minCount 1 ;
-    rdfs:comment "Why the problem is hard; every problem has at least one (other if none matched), exactly one with is_primary = true." .
+    rdfs:comment "Why the problem is hard; every problem has at least one (other if none matched), exactly one with kg:is_primary = true." .
 
 kg:HAS_NEXT_EXPERIMENT a owl:ObjectProperty, owl:FunctionalProperty, owl:InverseFunctionalProperty ;
     rdfs:domain kg:Problem ; rdfs:range kg:FutureDirection ;
@@ -184,10 +194,11 @@ kg:source a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ;
     rdfs:subPropertyOf dcterms:source ; rdfs:comment "Name of the DataSource (ai_research)." .
 kg:provenance a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ; kg:codeList "provenance" .
 kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extraction_method" ;
-    rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource." .
+    kg:required true ; kg:notRequiredOn kg:DataSource ;
+    rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource (the rule the checker reads is kg:required + kg:notRequiredOn)." .
 kg:source_url a owl:DatatypeProperty ; rdfs:range xsd:anyURI ;
-    rdfs:subPropertyOf prov:hadPrimarySource ;
-    rdfs:comment "The exact file at the pinned commit the node was read from." .
+    rdfs:seeAlso prov:hadPrimarySource ;
+    rdfs:comment "The exact file at the pinned commit the node was read from: the locator of the node's prov:hadPrimarySource. Stored as a literal, so it is not declared a sub-property of that object property." .
 
 kg:status a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:string ; kg:required true ; kg:codeList "problem_status" .
 kg:catalog_provenance a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:string ; kg:required true ; kg:codeList "catalog_provenance" .
@@ -197,15 +208,15 @@ kg:last_substantive_update a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdf
 kg:number a owl:DatatypeProperty ; rdfs:domain kg:Topic ; rdfs:range xsd:integer ; kg:required true ;
     rdfs:subPropertyOf skos:notation ; rdfs:comment "Topic number 1-35: stable identity, never reused." .
 kg:arxiv_id a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
-    rdfs:comment "arXiv identifier YYMM.NNNNN (4 digits after the dot before 2015)." .
+    rdfs:comment "arXiv identifier: new style YYMM.NNNNN (4 digits after the dot before 2015, 5 from 2015) or old style archive/YYMMNNN (before April 2007)." .
 kg:doi a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ; rdfs:subPropertyOf schema:identifier .
 kg:year a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:gYear .
 kg:name_form a owl:DatatypeProperty ; rdfs:domain kg:Person ; rdfs:range xsd:string ; kg:required true ; kg:codeList "name_form" .
 kg:kind_institution a owl:DatatypeProperty ; rdfs:domain kg:Institution ; rdfs:range xsd:string ; kg:required true ; kg:codeList "institution_kind" ;
-    rdfs:label "kind" .
+    kg:propertyName "kind" ; rdfs:label "Institution kind" .
 kg:violated a owl:DatatypeProperty ; rdfs:domain kg:Assumption ; rdfs:range xsd:string ; kg:required true ; kg:codeList "assumption_status" .
 kg:kind_gap a owl:DatatypeProperty ; rdfs:domain kg:OpenQuestion ; rdfs:range xsd:string ; kg:required true ; kg:codeList "gap_kind" ;
-    rdfs:label "kind" .
+    kg:propertyName "kind" ; rdfs:label "Open-question kind" .
 kg:compute_budget_gpu_hours a owl:DatatypeProperty ; rdfs:domain kg:FutureDirection ; rdfs:range xsd:decimal .
 kg:version a owl:DatatypeProperty ; rdfs:domain kg:DataSource ; rdfs:range xsd:string ; kg:required true ;
     rdfs:subPropertyOf dcat:version ; rdfs:comment "Pinned git commit (40 hex characters)." .
@@ -213,4 +224,8 @@ kg:version a owl:DatatypeProperty ; rdfs:domain kg:DataSource ; rdfs:range xsd:s
 kg:role a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:onEdge true ; kg:codeList "cites_role" ;
     rdfs:comment "On CITES." .
 kg:relatedness_method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:onEdge true ; kg:codeList "relatedness_method" ;
-    rdfs:label "method" ; rdfs:comment "On RELATED_TO, with score in (0, 1]." .
+    kg:propertyName "method" ; rdfs:label "Relatedness method" ; rdfs:comment "On RELATED_TO: how the link was computed." .
+kg:score a owl:DatatypeProperty ; rdfs:range xsd:decimal ; kg:onEdge true ;
+    rdfs:comment "On RELATED_TO: similarity in (0, 1] (Jaccard of shared papers for method shared_papers); checked by C9." .
+kg:is_primary a owl:DatatypeProperty ; rdfs:range xsd:boolean ; kg:onEdge true ;
+    rdfs:comment "On BLOCKED_BY: true on exactly one obstruction per problem (checked by O6)." .

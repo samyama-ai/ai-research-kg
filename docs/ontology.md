@@ -5,7 +5,7 @@ The machine-readable version is [`ontology/ai_research_kg.ttl`](../ontology/ai_r
 (OWL/RDFS in Turtle). `etl/conformance.py` reads that file and checks the graph against it;
 the result is in [conformance.md](conformance.md), checks O1–O10.
 
-v0.1, 2026-10-09. It describes the v1 graph as built (11 labels, 11 edge types), not the larger
+v0.1.1, 2026-10-12 (first written 2026-10-09). It describes the v1 graph as built (11 labels, 11 edge types), not the larger
 v0.1 design in docs/schema.md.
 
 ## Why a separate ontology file
@@ -27,22 +27,25 @@ ontology in `docs/schema.md` and `schema/template_kg.cypher`, and lists "an OWL 
 
 | Class | What it is | Count | Aligned with | Id pattern |
 |---|---|---:|---|---|
-| `Problem` | One open AI research problem (one catalog page) | 1,000 | ORKG `Problem` (closeMatch) | `problem:NN-topic/slug` |
+| `Problem` | One open AI research problem (one catalog page) | 1,000 | see also ORKG `Problem` | `problem:NN-topic/slug` |
 | `Topic` | One of the 35 topics of TAXONOMY.md | 35 | subclass of `skos:Concept` | `topic:NN-slug` |
-| `Paper` | A cited publication | 4,932 | `schema:ScholarlyArticle`, `fabio:ScholarlyWork` | `paper:arxiv:…` / `paper:doi:…` / `paper:t:<hash>` |
-| `Person` | An author, as written in the reference | 15,097 | `schema:Person`, `foaf:Agent` | `person:<slug>` |
-| `Venue` | Where a paper appeared | 550 | `schema:Periodical`, `schema:EventSeries` | `venue:<slug>` |
-| `Institution` | A lab named in Current Research | 50 | `schema:Organization`, `foaf:Organization` | `institution:<key>` |
+| `Paper` | A cited publication | 4,932 | subclass of `fabio:ScholarlyWork`; see also `schema:ScholarlyArticle` | `paper:arxiv:…` (new or old style) / `paper:doi:…` / `paper:t:<hash>` |
+| `Person` | An author, as written in the reference | 15,097 | subclass of `foaf:Agent` (19 are collectives such as "Llama Team"); see also `schema:Person` | `person:<slug>` |
+| `Venue` | Where a paper appeared | 550 | see also `schema:Periodical`, `schema:EventSeries` (one class covers both, so neither is a superclass) | `venue:<slug>` |
+| `Institution` | A lab named in Current Research | 50 | subclass of `foaf:Organization`; see also `schema:Organization` | `institution:<key>` |
 | `Assumption` | An assumption one problem rests on | 2,499 | (ours) | `<problem id>#assumption-N` |
 | `OpenQuestion` | One gap in what is known, with its kind | 3,790 | (ours) | `<problem id>#gap-N` |
 | `Obstruction` | A type of reason a problem is hard | 6 | subclass of `skos:Concept` | `obstruction:<code>` |
 | `FutureDirection` | The concrete next experiment | 1,000 | (ours) | `<problem id>#next-experiment` |
 | `DataSource` | The pinned catalog | 1 | subclass of `dcat:Dataset` | `datasource:<name>` |
 
-ORKG (the Open Research Knowledge Graph, TIB Hannover) is the closest published model of
-research problems. Its class `Problem` has no formal URI, so the link is `skos:closeMatch` to
-`https://orkg.org/class/Problem`, not equivalence. No published ontology has assumptions, open
-questions or next experiments, so those three classes are ours.
+How the alignments are written: `rdfs:subClassOf` where the published class is genuinely
+broader than ours (every Paper is a `fabio:ScholarlyWork`), `rdfs:seeAlso` where it is only
+similar. `skos:closeMatch` is not used on classes: SKOS mapping properties are for SKOS concepts
+(our `Topic` and `Obstruction` nodes), not for OWL classes. ORKG (the Open Research Knowledge
+Graph, TIB Hannover) is the closest published model of research problems; its class `Problem`
+has no formal URI, so the link is `rdfs:seeAlso https://orkg.org/class/Problem`. No published
+ontology has assumptions, open questions or next experiments, so those three classes are ours.
 
 ## Relationships (11)
 
@@ -76,7 +79,9 @@ CiTO (the Citation Typing Ontology, SPAR) names the reasons one work cites anoth
 | `caution` | `cito:critiques` | 306 |
 | `benchmark` *(proposed)* | `cito:usesDataFrom` | — |
 
-These are `closeMatch` mappings. The catalog's own 669 free-text tags are kept in `role_raw`.
+These are nearest-term mappings recorded in `vocab/concepts.yaml` (`maps_to`), not formal
+sub-properties: CiTO's properties hold between two works, while `role` is a string on an edge.
+The catalog's own 669 free-text tags are kept in `role_raw`.
 
 ## Properties and code lists
 
@@ -100,6 +105,15 @@ whose values come from a fixed list point to their scheme in
 
 Dates are ISO 8601 year-months (`xsd:gYearMonth`), and `Topic.number` is a `skos:notation`.
 
+Two conventions the checker reads from the file, so that no rule lives only in code:
+`kg:propertyName` gives a property's name in the graph where two classes share one
+(`kind_institution` and `kind_gap` are both `kind`; `relatedness_method` is `method` on
+`RELATED_TO`), and `kg:notRequiredOn` lists the classes a required property may be missing from
+(`method` is required on every node but `DataSource`). Edge properties that a rule uses are
+declared too: `is_primary` on `BLOCKED_BY` (O6) and `score` on `RELATED_TO` (C9).
+`source_url` is the locator of a node's `prov:hadPrimarySource`; it is a literal, so it is linked
+with `rdfs:seeAlso`, not declared a sub-property of that object property.
+
 ## Does the graph follow the ontology? (measured 2026-10-09)
 
 | Check | Rule | Result |
@@ -122,7 +136,8 @@ Dates are ISO 8601 year-months (`xsd:gYearMonth`), and `Topic.number` is a `skos
 - **O9:** teach `parse_assumptions` the inline `(i)`/`(ii)` form. That would add assumptions to
   up to 189 problems.
 
-Both change the built graph, so they belong in a v1.1 rebuild, not in this ontology change.
+Both change the built graph, so they are fixed in the v1.1 rebuild (PR #5), tracked at the top of
+[conformance.md](conformance.md), not in this ontology change.
 
 ## Followed, not imported
 
@@ -131,6 +146,7 @@ Both change the built graph, so they belong in a v1.1 rebuild, not in this ontol
 | SKOS | W3C | `Topic` and `Obstruction` are concepts; topic areas would be `skos:broader` (docs/taxonomy.md R1) |
 | PROV-O | W3C | `source`, `source_url` (`hadPrimarySource`), `method` (the activity), `FROM_SOURCE` (`wasDerivedFrom`) |
 | CiTO, FaBiO (SPAR) | SPAR / Univ. of Bologna, Oxford | citation roles; `Paper` |
-| schema.org | schema.org | `Paper`, `Person`, `Venue`, `Institution` |
+| schema.org | schema.org | `rdfs:seeAlso` from `Paper`, `Person`, `Venue`, `Institution` |
+| FOAF | FOAF project | `Person` ⊂ `foaf:Agent`, `Institution` ⊂ `foaf:Organization` |
 | DCAT, Dublin Core terms | W3C, DCMI | `DataSource`; `subject`, `creator`, `isPartOf`, `relation` |
 | ORKG | TIB Hannover | the `Problem` class |

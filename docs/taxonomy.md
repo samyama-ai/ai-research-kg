@@ -2,7 +2,7 @@
 
 Checked 2026-10-09 against `ai_research` at `a02e87b3` (the pinned commit). Every number here is
 measured by `python -m etl.conformance` and listed check by check in
-[conformance.md](conformance.md) (checks T1–T11, C9, C11, C13).
+[conformance.md](conformance.md) (checks T1–T13, C9, C11, C13).
 
 **Short answer:** the graph follows the taxonomy exactly. All 35 topics are present with the
 same number, name, folder and scope, and every one of the 1,000 problems sits in the topic its
@@ -35,19 +35,24 @@ cross topics (1,735 of 3,128 `RELATED_TO` edges, 55%), so a reader needs a coars
 proposal groups the topics by measured coupling: papers cited by both topics, and `RELATED_TO`
 links between their problems.
 
-| Area | Topics | Strongest measured couplings |
+| Area | Topics | Strongest couplings inside the area (papers cited by both topics, T13) |
 |---|---|---|
-| `architecture`: model architecture and generative families | 01, 02, 07, 08, 09, 14, 15, 16, 34 | 02–14 (72 shared papers), 02–09 (64), 09–14 (49) |
+| `architecture`: model architecture and generative families | 01, 02, 07, 08, 09, 14, 15, 16, 34 | 02–14 (72), 02–09 (64), 09–14 (49) |
 | `training`: training, data and scaling | 03, 06, 10, 13, 29, 30 | 03–10 (63), 06–30 (52), 13–29 (45) |
-| `systems`: systems and efficiency | 11, 12, 31, 32 | 31–32 (60), 11–32 (46) |
-| `post_training`: alignment, RL and reasoning | 04, 17, 18 | 04–18 (71), 17–18 (49) |
-| `trust`: trust, safety and evaluation | 19, 20, 21, 22, 23, 28, 33 | 21–28 (26 links), 21–33 (39 papers) |
-| `applications`: capabilities and modalities | 05, 24, 25, 26, 27, 35 | 05–21 (40), 07–24 (38) |
+| `systems`: systems and efficiency | 11, 12, 31, 32 | 31–32 (60), 11–32 (46), 12–32 (32) |
+| `post_training`: alignment, RL and reasoning | 04, 17, 18 | 04–18 (71), 17–18 (49), 04–17 (35) |
+| `trust`: trust, safety and evaluation | 19, 20, 21, 22, 23, 28, 33 | 21–33 (39), 22–33 (36), 19–33 (35) |
+| `applications`: capabilities and modalities | 05, 24, 25, 26, 27, 35 | 05–26 (28), 05–27 (20), 26–27 (19) |
 
-**Measured:** 64% of `RELATED_TO` links stay inside one area. If the areas were random groups
-of these sizes, about 19% would. Caution: the grouping was chosen *from* this coupling data, so
+One unit throughout: the number of papers cited by both topics (T13). The `applications` area is
+the loosest: its strongest inside pair, 05–26 (28), is weaker than its strongest pulls outward,
+05–21 Factuality (40) and 07–24 (38), so it is a residual group as much as a cluster.
+
+**Measured (T11):** 64% of `RELATED_TO` links stay inside one area. If the areas were random
+groups of these sizes, 19% would. Caution: the grouping was chosen *from* this coupling data, so
 the 64% shows the grouping fits the data, not that it is the right grouping. One boundary is a
-judgment call: 04 Alignment couples equally with 18 RL (71 papers) and 22 Safety (72).
+judgment call: 04 Alignment couples equally with 18 RL (71 papers) and 22 Safety (72), and 04–22
+is the strongest cross-area pair in the whole graph (T13).
 
 **How to build it:** `TopicArea` nodes (or SKOS concepts in a `topic_area` scheme) with
 `(Topic)-[:BROADER]->(TopicArea)`, the SKOS `broader` pattern the Valuation KG uses. The codes
@@ -68,9 +73,9 @@ yet:
   economics* (15), *hybrid stacks* (16), *statistical power* (19), *knowledge boundaries* (21),
   *vision-language fusion* (24), *continual learning* (28), *curriculum transfer* (29),
   *verifier-guided synthesis* (30), *parallelism strategies* (31).
-- **218 of 1,000 problems match none of their topic's terms** (T9). The worst topics are 28
-  Knowledge Editing (20 of 29), 06 Data Pipelines and 22 Safety (13 each), and 07, 14, 18, 32
-  (12 each).
+- **218 of 1,000 problems match none of their topic's terms** (T9, which lists the worst
+  topics): 28 Knowledge Editing (20 of 29), 06 Data Pipelines (13 of 29), 22 Safety (13 of 26),
+  and 07, 14, 18, 32 (12 each).
 
 Keyword matching is crude; a term like *parallelism strategies* may be covered under other
 words. Treat both lists as a review queue: either the scope text gains the missing words, or the
@@ -80,25 +85,27 @@ research areas with no problem yet.
 ### R3. Give problems a secondary topic
 
 90 problems (9%) have most of their `RELATED_TO` neighbours (at least 2/3, and at least 3 links)
-in one *other* topic (T10). Examples:
+in one *other* topic (T10). The five strongest, as T10 lists them:
 
 | Problem | Filed under | Neighbours mostly in |
 |---|---|---|
-| `21-factuality/knowledge-editing-ripple-effects` | 21 Factuality | 28 Knowledge Editing (23 of 24) |
 | `29-distillation/lora-expressivity-limits-transfer` | 29 Distillation | 13 Parameter-Efficient Adaptation (9 of 9) |
-| `09-model-design/moe-expert-granularity-law` | 09 Model Design | 15 Mixture of Experts (11 of 13) |
 | `17-reasoning/diversity-collapse-under-reasoning-rl` | 17 Reasoning | 18 RL for LLMs (7 of 7) |
-| `32-hardware-and-kernels/attention-paging-granularity` | 32 Hardware | 11 Inference & Serving (9 of 10) |
+| `29-distillation/compression-method-frontier` | 29 Distillation | 12 Quantization & Compression (7 of 7) |
+| `23-privacy-memorization/memorization-parameter-efficient-finetuning` | 23 Privacy & Memorization | 13 Parameter-Efficient Adaptation (6 of 6) |
+| `24-multimodal/cross-modal-routing-circuits` | 24 Multimodal | 20 Interpretability (5 of 5) |
 
 These are not misfilings: problem ids are stable and the primary topic stays. The proposal is a
 computed `(Problem)-[:ALSO_IN_TOPIC {method: "related_majority", score}]->(Topic)` edge,
-labelled as computed like `RELATED_TO`. Then "all MoE problems" finds the 6 MoE problems filed
-elsewhere. The full list of 90 is in [conformance.md](conformance.md) (T10, first 5 shown;
-rerun the tool for all).
+labelled as computed like `RELATED_TO`. Then a query for one topic also finds the problems
+filed elsewhere that mostly link to it. [conformance.md](conformance.md) shows these same five
+(T10); the full list of 90 is not stored anywhere, the tool prints it with
+`python -m etl.conformance --examples 0`.
 
 ### R4. Mark cross-cutting topics and isolated topics
 
-The share of a topic's cited papers that no other topic cites shows what kind of topic it is:
+The share of a topic's cited papers that no other topic cites shows what kind of topic it is
+(T12):
 
 - **Cross-cutting lenses:** 10 Scaling Laws (8% own papers), 14 Long Context (19%), 09 Model
   Design (21%). They study *every* other area at scale. Queries should expect them to overlap.
@@ -121,9 +128,9 @@ conformance C9):
 
 | Vocabulary | Finding | Proposal |
 |---|---|---|
-| Citation role (7) | `context` is the catch-all, with 1,906 citations (15%). About 414 of them are tagged Benchmark (268), Evaluation (116), Dataset, Eval or Metric | Add `benchmark` (→ CiTO `usesDataFrom`); drafted as `proposed` |
-| Open-question kind (3 + unclassified) | 41 of 3,790 unclassified; 18 of those say just "Open" | Keep `unclassified`: guessing a kind would invent data |
-| Obstruction (5 + other) | Keyword-classified. `confounded_measurement` (521) and `non_identifiability` (460) dominate; `other` is 24 | Review a sample of 50 by hand before trusting the split |
+| Citation role (7) | `context` is the catch-all, with 1,906 citations (15%). Benchmark (268) and Evaluation (116) alone are 384 of them (raw tags listed under C9) | Add `benchmark` (→ CiTO `usesDataFrom`); drafted as `proposed` |
+| Open-question kind (3 + unclassified) | 41 of 3,790 unclassified; 18 of those say just "Open" (raw labels under C9) | Keep `unclassified`: guessing a kind would invent data |
+| Obstruction (5 + other) | Keyword-classified. `confounded_measurement` (521) and `non_identifiability` (460) dominate; `other` is 24 (`BLOCKED_BY` counts under C9) | Review a sample of 50 by hand before trusting the split |
 | Venue (none) | 550 venues; 351 with one paper; 40 are parser residue (`(`, `Workshop paper /`); 87 papers get two venues (ICLR vs ICML 8 times, NSDI vs USENIX NSDI) | A `venue_kind` code list (drafted) and a canonical venue list, keyed to DBLP stream ids later |
 
 ### R7. Crosswalks (later, need external lookups)

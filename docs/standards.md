@@ -4,8 +4,8 @@ Every standard, coding system, taxonomy and ontology the AI Research KG is built
 the graph from each, what is only planned, and whether the graph keeps its rules. Layout follows
 [enterprise-valuation-kg docs/standards.md](https://git.samyama.ai/Samyama.ai/enterprise-valuation-kg/src/branch/main/docs/standards.md).
 
-v0.3, 2026-10-09. v0.2 (2026-10-07) chose the sources; v0.3 adds what the v1 graph actually
-holds and checks it. Every count is measured by `python -m etl.conformance`, with the check ids
+v0.3.1, 2026-10-12. v0.2 (2026-10-07) chose the sources; v0.3 (2026-10-09) added what the v1
+graph actually holds and checks it; v0.3.1 answers the AI review (counts, status icons, sources). Every count is measured by `python -m etl.conformance`, with the check ids
 from [conformance.md](conformance.md).
 
 **Approach: do what the DBMS Research KG did.** Its source repo `dbms_research` resolves people
@@ -16,14 +16,18 @@ not loaded.
 
 | Kind | What it is | Example here | How many |
 |---|---|---|---:|
-| **Coding system** | A list of codes, each code naming one thing | `arXiv:2406.11779`; `20-interpretability/internals-based-safety-verification`; `CITES.role = sota` | **9 external + 12 own** |
+| **Coding system** | A list of codes, each code naming one thing | `arXiv:2406.11779`; `20-interpretability/internals-based-safety-verification`; `CITES.role = sota` | **9 external + 14 own** (3 identifier conventions + 11 code lists) |
 | **Taxonomy** | Codes arranged as a tree, or a fixed classification | the 35 topics of TAXONOMY.md; the 5 obstruction types | **2 in use + 2 proposed levels** |
-| **Ontology** | What kinds of thing exist and how they relate | `(Problem)-[:CITES {role}]->(Paper)` = `cito:cites` | **1 own + 7 followed** |
-| **Standard / framework** | A rulebook we follow or reuse as a vocabulary | ISO 8601 dates; PROV-O provenance; FAIR | **6 followed + 4 later (RAI)** |
+| **Ontology** | What kinds of thing exist and how they relate | `(Problem)-[:CITES {role}]->(Paper)` = `cito:cites` | **1 own + 8 followed** |
+| **Standard / framework** | A rulebook we follow or reuse as a vocabulary | ISO 8601 dates; PROV-O provenance; FAIR | **5 followed + 1 proposed + 4 later (RAI)** |
 
 Status key: ✅ **loaded** = in the graph today · 🔑 **identifier, planned** = will be a property
 once external lookups are allowed · 📐 **pattern** = we follow its structure; nothing is imported
-· 🔜 **later** · ❌ **not used**.
+· 🔜 **later**. In the "Follows it?" columns, ✅ = the graph keeps the rule, ❌ = it breaks it (the
+fix is tracked at the top of [conformance.md](conformance.md)), ⚠️ = proposed, not decided yet.
+Planned (🔑) rows have nothing to follow yet, so that column says "— not loaded"; what the v1
+measurements say about them is written out below each table. Standards we deliberately don't
+use have their own section, with no icon.
 
 ## Coding systems
 
@@ -35,13 +39,30 @@ once external lookups are allowed · 📐 **pattern** = we follow its structure;
 | **DOI** (ISO 26324) | International DOI Foundation | papers | `Paper.doi`, id `paper:doi:<doi>`: **1** paper | ✅ | ✅ (C6). The catalog rarely gives DOIs; never guessed |
 | **ISO 8601** dates | ISO | dates | `first_added`, `last_reviewed`, `last_substantive_update` as `YYYY-MM` | ✅ | ✅ 3,000 values (C7) |
 | **Git commit SHA-1** | git | source version | `DataSource.version` = `a02e87b3…` (40 hex) | ✅ | ✅ equals the pinned commit (C8) |
-| **DBLP person id** (`pid`) | Schloss Dagstuhl (CC0) | researchers | `Person.dblp_pid` | 🔑 | not yet: **52%** of 15,097 authors are initials or surname only (C12) |
+| **DBLP person id** (`pid`) | Schloss Dagstuhl (CC0) | researchers | `Person.dblp_pid` | 🔑 | — not loaded |
 | **ORCID iD** | ORCID | researchers | `Person.orcid`, only when DBLP gives it | 🔑 | — |
-| **DBLP stream key** (`conf/nips`, `journals/jmlr`) | Schloss Dagstuhl | venues | `Venue.dblp_key` | 🔑 | needed: 550 venues, 40 are parser residue (C11), 87 papers have two (C13) |
+| **DBLP stream key** (`conf/nips`, `journals/jmlr`) | Schloss Dagstuhl | venues | `Venue.dblp_key` | 🔑 | — not loaded |
 | **arXiv category** (`cs.LG`, `cs.CL`, `stat.ML`) | arXiv | subject areas | `Paper.arxiv_categories`; Topic crosswalk | 🔑 | — |
-| **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | DBMS didn't use them |
+| **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | — not loaded |
 
-### Own (12)
+**What v1 measures about the planned identifiers.** 52% of the 15,097 author names are initials
+or a surname only, so people can't be told apart without DBLP (C12). There are 550 venue names,
+40 of them parser residue, and 87 papers are given two venues by different citations (C11,
+C13), so venues need a canonical key such as the DBLP stream. ROR and OpenAlex are optional
+because the DBMS KG managed without them.
+
+### Reference-checking services (planned, as DBMS `tools/verify_refs.py` and `dblp_*.py`)
+
+Services, not coding systems, so they are not counted above. They supply or verify the codes.
+
+| Service | Gives | Terms to respect | Status |
+|---|---|---|---|
+| **arXiv API** (legacy API, Atom) | full author lists, categories, dates for an arXiv id | **max 1 request every 3 s, one connection**; batch up to ~100 ids per request (`id_list`); cache in `data/`; metadata CC0 | 🔑 |
+| **Crossref REST API** | metadata for a DOI | open metadata; polite pool with a `mailto` | 🔑 |
+| **DataCite REST API** | DOIs Crossref doesn't hold, e.g. arXiv DOIs `10.48550/…` | CC0 metadata | 🔑 |
+| **DBLP** (XML dump or search API) | person ids, stream keys, affiliations | CC0; record the dump date | 🔑 |
+
+### Own (14): 3 identifier conventions + 11 code lists
 
 The catalog's identifiers, plus the KG's controlled vocabularies, each a closed list in
 [`vocab/concepts.yaml`](../vocab/concepts.yaml). Every coded value in the graph is on its list,
@@ -51,7 +72,7 @@ The catalog's identifiers, plus the KG's controlled vocabularies, each a closed 
 |---|---|---|---|
 | **Topic number** `NN` + slug | 35 (01–35, stable, never reused) | `Topic.number`, `topic:<NN-slug>` | ✅ (C3) |
 | **Problem id** `NN-topic/slug` | 1,000 | `problem:<id>`; children `#assumption-N`, `#gap-N`, `#next-experiment` | ✅ (C1, C2) |
-| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ❌ 1 of 28,960 fails: `venue:` (a venue named `(`) (C1) |
+| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ❌ 1 of 28,960 fails: `venue:` (a venue named `(`) (C1); fix tracked: v1.1 (PR #5) |
 | `problem_status` | 5 used + `stale` (unused) | `Problem.status` | ✅ |
 | `catalog_provenance` | `synthesized` (all 1,000), `verified` | `Problem.catalog_provenance` | ✅ |
 | `cites_role` | 7 (+ `benchmark` proposed), each mapped to CiTO | `CITES.role` (raw tag in `role_raw`) | ✅ |
@@ -60,7 +81,9 @@ The catalog's identifiers, plus the KG's controlled vocabularies, each a closed 
 | `assumption_status` | 4 | `Assumption.violated` | ✅ |
 | `name_form` | 4 | `Person.name_form` | ✅ |
 | `institution_kind` | 4 | `Institution.kind` | ✅ |
-| `extraction_method`, `relatedness_method`, `provenance` | 3 · 1 · 1 | `method`, `RELATED_TO.method`, `provenance` | ✅ |
+| `extraction_method` | 3 | `method` on every node but `DataSource` | ✅ |
+| `relatedness_method` | 1 | `RELATED_TO.method` | ✅ |
+| `provenance` | 1 (`real`) | `provenance` on every node | ✅ |
 
 ## Taxonomies
 
@@ -82,10 +105,11 @@ Conformance in detail, and the seven refinements: **[taxonomy.md](taxonomy.md)**
 | Authors | DBLP person | DBLP search by title or arXiv id (as DBMS `dblp_*.py`) | `Person.dblp_pid` |
 | Venue names | DBLP stream key | alias table, then DBLP | `Venue.dblp_key` |
 
-## Ontologies (1 own + 7 followed)
+## Ontologies (1 own + 8 followed)
 
 **Our ontology** is [`ontology/ai_research_kg.ttl`](../ontology/ai_research_kg.ttl) (OWL/RDFS:
-11 classes, 11 relationships with domain, range and cardinality, id patterns, code lists),
+11 classes, 11 relationships with domain, range and cardinality, id patterns, code lists,
+required properties and the two edge properties rules use),
 explained in **[ontology.md](ontology.md)**. The conformance tool checks the graph against the
 file. Result: all classes, relationships, domains and ranges match. Cardinality fails for 87
 papers with two venues (O4).
@@ -95,23 +119,24 @@ papers with two venues (O4).
 | **SKOS** | W3C | `Topic`, `Obstruction` are `skos:Concept`; `Topic.number` = `skos:notation`; topic areas would be `skos:broader` | 📐 |
 | **PROV-O** | W3C | `source`, `source_url` = `prov:hadPrimarySource`, `method` = the activity, `FROM_SOURCE` = `prov:wasDerivedFrom` | 📐 (gap: `retrieved_at`, below) |
 | **CiTO** (Citation Typing Ontology) | SPAR | `CITES` = `cito:cites`; each `role` maps to a CiTO property | 📐 |
-| **FaBiO** | SPAR | `Paper` ≈ `fabio:ScholarlyWork` | 📐 |
-| **schema.org** | schema.org | `ScholarlyArticle`, `Person`, `Organization`, `Periodical` | 📐 |
+| **FaBiO** | SPAR | `Paper` ⊂ `fabio:ScholarlyWork` | 📐 |
+| **schema.org** | schema.org | `rdfs:seeAlso` from `Paper`, `Person`, `Institution`, `Venue` to `ScholarlyArticle`, `Person`, `Organization`, `Periodical` / `EventSeries` | 📐 |
+| **FOAF** | FOAF project | `Person` ⊂ `foaf:Agent` (19 authors are collectives), `Institution` ⊂ `foaf:Organization` | 📐 |
 | **DCAT + Dublin Core terms** | W3C, DCMI | `DataSource` ⊂ `dcat:Dataset`; `dcterms:subject / creator / isPartOf / relation` | 📐 |
-| **ORKG** | TIB Hannover | `Problem` ≈ ORKG `Problem` | 📐 |
+| **ORKG** | TIB Hannover | `Problem` `rdfs:seeAlso` ORKG `Problem` (no formal URI) | 📐 |
 
 ## Standards and frameworks
 
-### Followed (6)
+### Followed (5) and proposed (1)
 
 | Standard | Authority | What it requires here | Follows it? |
 |---|---|---|---|
 | **Naming conventions** (as the DBMS and Valuation KGs) | Samyama KG guide | labels PascalCase singular, edges UPPER_SNAKE, stable deterministic `id` | ✅ (S1, C2) |
 | **PROV-O provenance** (docs/schema.md §4) | W3C | `source`, `provenance`, `method` on every node; `source_url` on page-level nodes | ✅ (S2, S3) |
-| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ❌ **absent on all 28,960 nodes** (S4) |
+| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ❌ **absent on all 28,960 nodes** (S4); fix tracked: v1.1 (PR #5) |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
-| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8, E1: the engine holds exactly the built graph) |
+| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1 compares the running engine when the tool is given `--url`, last done 2026-10-09: 28,960 nodes, 62,178 edges) |
 | **ISO 8601** | ISO | dates | ✅ (C7) |
 | **CC BY 4.0** (as `dbms_research`) | Creative Commons | licence of the graph | ⚠️ proposed; `ai_research` states no licence, so `DataSource.licence` says "none stated" (S8). Blocks publishing only |
 
@@ -164,15 +189,26 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 - **People:** names are as written; 52% are initials or surname only, and nothing is merged.
 - **Topic scope text:** 18 of the 166 scope terms name no problem (T8).
 
-The first three need a v1.1 rebuild; they are listed in [taxonomy.md](taxonomy.md) and
-[ontology.md](ontology.md).
+The first three are fixed in the v1.1 rebuild (PR #5) and tracked at the top of
+[conformance.md](conformance.md). The licence waits on the lead (issue #6).
 
-## Sources (checked 2026-10-07 and 2026-10-09)
+## Sources (checked 2026-10-07, 2026-10-09 and 2026-10-12)
 
-- arXiv identifiers and licence: info.arxiv.org/help/arxiv_identifier.html, info.arxiv.org/help/license
+Two hosts appear below on purpose: the **source-data repos** (`ai_research`, `dbms_research`)
+live on GitHub under `samyama-ai`; the **KG repos** (`enterprise-valuation-kg`, this one) live on
+the team's Gitea under `Samyama.ai`.
+
+- arXiv identifiers, licence and API terms: info.arxiv.org/help/arxiv_identifier.html, info.arxiv.org/help/license, info.arxiv.org/help/api/tou.html (rate limit)
+- arXiv category taxonomy: arxiv.org/category_taxonomy
+- Crossref and DataCite APIs: api.crossref.org (docs: www.crossref.org/documentation/retrieve-metadata/rest-api), support.datacite.org/docs/api
+- DBLP licence (CC0) and API: dblp.org/faq, dblp.org/faq/How+to+use+the+dblp+search+API.html
+- ORCID: info.orcid.org · ROR data dump: ror.readme.io/docs/data-dump · OpenAlex topics: help.openalex.org/data/topics
 - CiTO and FaBiO: sparontologies.github.io/cito, sparontologies.github.io/fabio
 - ORKG class `Problem`: orkg.org/api/classes/Problem (no formal URI; "A situation, person, or thing that needs attention…")
-- SKOS, PROV-O, DCAT: w3.org/TR/skos-reference, w3.org/TR/prov-o, w3.org/TR/vocab-dcat-3
-- DBMS approach: github.com/samyama-ai/dbms_research (README licence, `tools/dblp_*.py`, `tools/verify_refs.py`)
-- ACM CCS: acm.org/publications/class-2012 · Semantic Scholar licence: api.semanticscholar.org/license
+- SKOS, PROV-O, DCAT, Dublin Core terms: w3.org/TR/skos-reference, w3.org/TR/prov-o, w3.org/TR/vocab-dcat-3, dublincore.org/specifications/dublin-core/dcmi-terms
+- schema.org, FOAF: schema.org, xmlns.com/foaf/spec
+- ISO 8601: iso.org/iso-8601-date-and-time-format.html · DOI (ISO 26324): doi.org
+- Responsible AI standards (later): nist.gov/itl/ai-risk-management-framework (AI RMF 1.0 and NIST AI 600-1), eur-lex.europa.eu Regulation (EU) 2024/1689, iso.org/standard/81230.html (ISO/IEC 42001:2023), oecd.org/en/topics/ai-principles.html
+- DBMS approach: github.com/samyama-ai/dbms_research (README licence, `tools/dblp_*.py`, `tools/verify_refs.py`); its KG: github.com/samyama-ai/samyama-graph `case_studies/dbms-research`
+- Not used: ACM CCS acm.org/publications/class-2012 · Semantic Scholar licence api.semanticscholar.org/license · Papers with Code shutdown (2025-07-24): coursera.org/articles/papers-with-code
 - Reference layout: git.samyama.ai/Samyama.ai/enterprise-valuation-kg `docs/standards.md`
