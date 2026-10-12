@@ -77,6 +77,8 @@ def test_problem_nodes(graph):
     assert set(graph.nodes["Problem"]) == {REAL, FIX}
     p = graph.nodes["Problem"][REAL]
     assert p["status"] == "solved-but-impractical"
+    assert p["catalog_provenance"] == "synthesized"   # the catalog's prose flag, kept separate from provenance = real
+    assert p["provenance"] == "real" and p["method"] == "parsed"
     assert p["topic"] == "20-interpretability"
     assert p["statement"].startswith("Given a trained network")
 
