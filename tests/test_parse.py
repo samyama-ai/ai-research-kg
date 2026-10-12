@@ -145,7 +145,8 @@ def test_one_venue_per_paper(graph):
     from collections import Counter
     per_paper = Counter(e[1] for e in graph.edges if e[2] == "APPEARED_AT")
     assert max(per_paper.values()) == 1
-    assert all(n.get("retrieved_at") for nodes in graph.nodes.values() for n in nodes.values())
+    # the fixture has no recorded fetch, so the dates are left off every node (never a placeholder)
+    assert not any("retrieved_at" in n or "source_date" in n for nodes in graph.nodes.values() for n in nodes.values())
 
 
 def test_assumption_heading_rules():
@@ -203,8 +204,44 @@ def test_catalog_dates_come_from_the_lock_file(tmp_path):
     from etl.build import catalog_dates
     root = tmp_path / "ai_research"
     root.mkdir()
-    assert catalog_dates(root, "abc") == ("unknown", "unknown")
+    assert catalog_dates(root, "abc") == (None, None)
     (tmp_path / "ai_research.lock.json").write_text(json.dumps(
         {"commit": "abc", "fetched_at": "2026-10-07T09:12:00+00:00", "commit_date": "2026-09-10T03:38:11+05:30"}))
     assert catalog_dates(root, "abc") == ("2026-10-07", "2026-09-10")
-    assert catalog_dates(root, "other") == ("unknown", "unknown")
+    assert catalog_dates(root, "other") == (None, None)
+
+
+def test_venue_with_no_two_letters_in_a_row_still_resolves():
+    from etl.parse import normalise_venue
+    assert normalise_venue("S&P") == "IEEE S&P"
+    assert normalise_venue("OpenReview") == "OpenReview"
+    assert normalise_venue("USENIX Conference on File and Storage Technologies") == "FAST"
+    assert normalise_venue("(") is None
+
+
+def test_false_positives_at_sentence_start_is_not_a_verdict():
+    from etl.parse import assumption_status
+    assert assumption_status("False positives are filtered by a second pass.") == "unstated"
+    assert assumption_status("False. The heads overlap.") == "violated"
+
+
+def test_inline_enumeration_rules():
+    from etl.parse import parse_assumptions
+    # "(1)" inside prose is a reference, not an enumeration; the item list below is what counts
+    prose_ref = "**Assumptions.** See Eq. (1) for the setting.\n\n- *Smoothness.* Violated.\n- *Bounded noise.* Holds.\n"
+    assert [a["name"] for a in parse_assumptions(prose_ref)] == ["Smoothness", "Bounded noise"]
+    # an enumeration on the heading line and a list below are both read
+    both = "**Assumptions:** (i) Linearity — violated. (ii) Stationarity — holds.\n- *Independence.* Violated.\n"
+    assert [a["name"] for a in parse_assumptions(both)] == ["Linearity", "Stationarity", "Independence"]
+    # an indented list under the heading is a list
+    indented = "**Assumptions.**\n  - *Linear features.* Violated.\n  - *Fixed data.* Holds.\n"
+    assert [a["name"] for a in parse_assumptions(indented)] == ["Linear features", "Fixed data"]
+
+
+def test_lazy_reexports_are_the_build_objects():
+    import etl.build as build
+    import etl.parse as parse
+    for name in parse._BUILD_NAMES:
+        assert getattr(parse, name) is getattr(build, name), name
+    with pytest.raises(AttributeError):
+        parse.no_such_name  # noqa: B018

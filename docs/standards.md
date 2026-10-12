@@ -119,7 +119,7 @@ file. Result: all classes, relationships, domains, ranges and cardinalities matc
 | Ontology | Publisher | How we use it | Status |
 |---|---|---|---|
 | **SKOS** | W3C | `Topic`, `Obstruction` are `skos:Concept`; `Topic.number` = `skos:notation`; topic areas would be `skos:broader` | 📐 |
-| **PROV-O** | W3C | `source`, `source_url` = `prov:hadPrimarySource`, `method` = the activity, `FROM_SOURCE` = `prov:wasDerivedFrom` | 📐 |
+| **PROV-O** | W3C | `source`, `source_url` (locator of the `prov:hadPrimarySource`), `method` = the activity, `FROM_SOURCE` = `prov:wasDerivedFrom`, `retrieved_at` ≈ `prov:generatedAtTime` (a date, so linked with `rdfs:seeAlso`, not a sub-property) | 📐 |
 | **CiTO** (Citation Typing Ontology) | SPAR | `CITES` = `cito:cites`; each `role` maps to a CiTO property | 📐 |
 | **FaBiO** | SPAR | `Paper` ⊂ `fabio:ScholarlyWork` | 📐 |
 | **schema.org** | schema.org | `rdfs:seeAlso` from `Paper`, `Person`, `Institution`, `Venue` to `ScholarlyArticle`, `Person`, `Organization`, `Periodical` / `EventSeries` | 📐 |
@@ -138,7 +138,7 @@ file. Result: all classes, relationships, domains, ranges and cardinalities matc
 | | | `retrieved_at` (when the pinned catalog was fetched, 2026-10-07) and `source_date` (the date of that version, 2026-09-10) on every node | ✅ all 29,696 nodes (S4). `retrieved_at` is the fetch recorded in `data/ai_research.lock.json`, `source_date` the commit's date, so a rebuild from the same checkout gives the same graph; `unknown` fails S4 |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
-| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1 compares the running engine when the tool is given `--url`, last done 2026-10-09: 29,696 nodes, 62,845 edges) |
+| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1: on 2026-10-12 the engine held exactly this build, 29,696 nodes and 62,845 edges, checked with `--url`; `etl/snapshot.py` checks the loaded counts against `snapshots/manifest.json`) |
 | **ISO 8601** | ISO | dates | ✅ (C7) |
 | **CC BY 4.0** (as `dbms_research`) | Creative Commons | licence of the graph | ⚠️ proposed; `ai_research` states no licence, so `DataSource.licence` says "none stated" (S8). Blocks publishing only |
 
@@ -183,9 +183,14 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 
 ## Known limits (measured)
 
-- **Venues:** each paper has one venue (a named venue beats arXiv, then the most cited). For 67
-  papers the catalog gives another venue too, kept in `Paper.venue_variants` (C13); for some the
-  catalog contradicts itself (ICLR vs ICML 8 times). 24 venue names still look like residue (C11).
+- **Venues:** each paper has one venue (a named venue beats arXiv, then the most cited). In v1, 87
+  papers had more than one `APPEARED_AT` edge (103 surplus edges; one paper had 7): for 13 of them
+  the second venue was just arXiv next to a named venue, and for 7 more the duplicate came from a
+  residue string or an alias that v1.1 now resolves (`NSDI` = `USENIX NSDI`, `CACM`, `IJCV`,
+  `TPAMI`). That leaves 67 papers whose catalog pages genuinely name two venues; the other one is
+  kept in `Paper.venue_variants` (C13). In 10 of them the catalog contradicts itself about the
+  conference (ICLR vs ICML 8 times, ICML vs NeurIPS twice), unchanged from v1. 24 venue names
+  still look like residue (C11).
 - **Assumptions:** 220 problems have none; 6 of them state assumptions only in unheaded
   numbered lists the parser does not read (O9).
 - **Provenance:** edges carry no provenance of their own; the problem page at the edge's source
@@ -195,7 +200,9 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 
 **Fixed in v1.1** (2026-10-09): two venues for 87 papers (O4), the empty id `venue:` (C1),
 `retrieved_at` missing on every node (S4), and assumptions missed in 184 problems (O9: 404 → 220
-problems without one; 2,499 → 3,263 assumptions). The failing checks were tracked at the top of
+problems without one; 2,499 → 3,263 assumptions). The edge arithmetic: 62,178 − 103 surplus
+`APPEARED_AT` edges + 6 papers that gained a venue through the new aliases (4,462 → 4,365) + 764
+`RESTS_ON` edges (2,499 → 3,263) = 62,845. Nodes: 28,960 − 28 Venue + 764 Assumption = 29,696. The failing checks were tracked at the top of
 [conformance.md](conformance.md) until then; the licence still waits on the lead (issue #6).
 
 ## Sources (checked 2026-10-07, 2026-10-09 and 2026-10-12)

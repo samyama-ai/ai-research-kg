@@ -38,13 +38,13 @@ says what to run next. Properties in `{braces}` after an edge name sit on the ed
 
 ## 2. Node labels (11)
 
-Every node also carries the provenance fields of §4. Counts are for the v1 graph.
+Every node also carries the provenance fields of §4. Counts are for the v1.1 graph.
 
 | Label | Count | One node per | Properties (beyond §4) | Read from |
 |---|---:|---|---|---|
 | `Problem` | 1,000 | catalog page | `title`, `slug`, `status`, `topic`, `first_added`, `last_reviewed`, `last_substantive_update`, `stale_since`, `catalog_provenance`, `statement` (opening paragraphs) | frontmatter + "Problem Statement" |
 | `Topic` | 35 | TAXONOMY.md row | `number` (1–35, stable), `name`, `slug`, `scope` | `TAXONOMY.md` |
-| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` (one per paper: a named venue beats a preprint server, then the most frequent), `venue_raw`, `venue_variants` (the catalog's other venues, `; `-separated), `authors_raw` | "Key References" |
+| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` (one per paper: a named venue beats a preprint server, then the most frequent), `venue_raw`, `venue_variants` (list of the catalog's other named venues), `authors_raw` | "Key References" |
 | `Person` | 15,097 | author string as written | `name`, `name_form` (full / initials / surname / collective) | author lists in "Key References" |
 | `Venue` | 522 | normalised venue name | `name` | venue text of each reference, through the alias list in `etl/rules.py` |
 | `Institution` | 50 | lab on the fixed list that occurs | `name`, `kind` (industry / academic / non-profit / government) | "Current Research", matched against 51 names (`etl/rules.py: INSTITUTIONS`; MIRI never occurs) |
@@ -124,11 +124,12 @@ end (listed as a known limit in [standards.md](standards.md)).
   -[:BLOCKED_BY {detail: "Exponential in unstable neurons, not in parameters", is_primary: true}]->
                               (:Obstruction {id: "obstruction:compute_cost", name: "Compute cost"})
   -[:HAS_NEXT_EXPERIMENT]->   (:FutureDirection {id: "…#next-experiment", compute_budget_gpu_hours: 200.0, single_machine: false})
-  (every node also: retrieved_at: "2026-10-07", source_date: "2026-09-10")
   <-[:ACTIVE_ON {direction: "Anthropic / GDM interpretability teams"}]- (:Institution {id: "institution:anthropic", name: "Anthropic", kind: "industry"})
   -[:RELATED_TO {method: "shared_papers", shared_papers: 5, score: 0.278}]-> (:Problem …)
   -[:FROM_SOURCE]->           (:DataSource {id: "datasource:ai_research", version: "a02e87b3…"})
 ```
+
+Every node in the path above also carries `retrieved_at: "2026-10-07"` and `source_date: "2026-09-10"` (§4); they are left out of the listing for space.
 
 ## 7. Planned in v0.1, not built in v1
 

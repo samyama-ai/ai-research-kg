@@ -1,28 +1,33 @@
 """Export the built graph as a `.sgsnap`, and load it back without running the ETL.
 
     python -m etl.snapshot export --url http://127.0.0.1:8090   # after loading the graph into that server
-    python -m etl.snapshot import --url http://127.0.0.1:8091   # into a FRESH server
+    python -m etl.snapshot import --url http://127.0.0.1:8092   # into a FRESH server
+    python -m etl.snapshot import --url ... --file other.sgsnap --manifest other.json
 
 WHY. Building the graph needs the catalog checkout (data/, not committed) and about a minute.
 A snapshot is the built graph itself: anyone with a Samyama server can have it in seconds.
 
 A `.sgsnap` is serialised ENGINE STATE, not a build. `snapshots/manifest.json` records the git commit
 that built it, the engine version, the counts per label and relationship, and a SHA-256, so a stale
-snapshot is visible. Re-export when the code or data changes.
+snapshot is visible. Re-export when the code or data changes. The manifest names the file it
+describes, and `import` refuses a file/manifest pair that does not match.
 
 THE TRAP (measured by interconnect-ip-kg, 2026-09-21; copied from enterprise-valuation-kg): import APPENDS, silently. A second import
 into the same server doubles every node and edge, with no error. So `import`:
   - refuses a graph that is not empty (checked by QUERY, not by the status counters), and
   - counts again afterwards and fails unless every count equals the manifest.
+This engine has no transaction to roll back and `DETACH DELETE` is not a full reset
+(docs/ENGINE-NOTES.md note 4), so a failed import leaves the server half-loaded: the message says
+to recreate the container, which is the only clean recovery.
 
-Engine: samyama-graph 1.11.0 (`ghcr.io/samyama-ai/samyama-graph:latest`), which serves exactly
-one graph named 'default'.
+Engine: samyama-graph 1.11.0, which serves exactly one graph named 'default'.
 """
 from __future__ import annotations
 
 import datetime as dt
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import urllib.request
@@ -38,6 +43,7 @@ SNAP_DIR = ROOT / "snapshots"
 SNAP_FILE = SNAP_DIR / "ai-research.sgsnap"
 MANIFEST = SNAP_DIR / "manifest.json"
 GRAPH = "default"
+COUNT_KEYS = ("nodes", "edges", "labels", "relationships")
 
 
 def _post(url: str, body: bytes = b"", content_type: str | None = None, timeout: int = 600) -> bytes:
@@ -54,19 +60,28 @@ def _get(url: str) -> dict:
 
 
 def counts(url: str) -> dict:
-    """What the graph holds, asked of the graph by query, never of /api/status."""
+    """What the graph holds, asked of the graph by query, never of /api/status.
+
+    Labels are counted one query per label, over every label the graph reports, so a node with
+    several labels is counted under each of them (and the per-label sum may exceed `nodes`).
+    """
     from samyama import SamyamaClient
 
     c = SamyamaClient.connect(url)
     one = lambda q: c.query(q, GRAPH).records[0][0]  # noqa: E731
     rows = lambda q: c.query(q, GRAPH).records       # noqa: E731
     out = {"nodes": one("MATCH (n) RETURN count(n)"), "edges": one("MATCH ()-[r]->() RETURN count(r)")}
-    # every label and relationship type the graph holds, counted by the graph itself
-    out["labels"] = {lab: n for lab, n in sorted(
-        rows("MATCH (n) WITH labels(n)[0] AS label, count(n) AS n RETURN label, n"))}
-    out["relationships"] = {rel: n for rel, n in sorted(
-        rows("MATCH ()-[r]->() WITH type(r) AS rel, count(r) AS n RETURN rel, n"))}
+    labels = sorted({lab for (labs,) in rows("MATCH (n) RETURN DISTINCT labels(n)") for lab in labs})
+    types = sorted(t for (t,) in rows("MATCH ()-[r]->() RETURN DISTINCT type(r)"))
+    out["labels"] = {lab: one(f"MATCH (n:{_ident(lab)}) RETURN count(n)") for lab in labels}
+    out["relationships"] = {t: one(f"MATCH ()-[r:{_ident(t)}]->() RETURN count(r)") for t in types}
     return out
+
+
+def _ident(name: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        raise click.ClickException(f"unexpected label or type name in the graph: {name!r}")
+    return name
 
 
 def sha256(path: Path) -> str:
@@ -78,12 +93,27 @@ def sha256(path: Path) -> str:
 
 
 def _commit() -> str:
+    """The repo commit the export was made from, '-dirty' when tracked files differ; 'unknown' if git fails."""
     try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no", "--", ".", ":!snapshots"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        return sha + ("-dirty" if dirty else "")
-    except OSError:
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no", "--", ".", ":!snapshots"],
+                               cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
         return "unknown"
+    return sha + ("-dirty" if dirty else "")
+
+
+def _load_manifest(path: Path) -> dict:
+    if not path.exists():
+        raise click.ClickException(f"no manifest at {path}: run `python -m etl.snapshot export` first, or pass --manifest")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise click.ClickException(f"{path} is not valid JSON: {error}") from error
+    missing = [k for k in ("file", "sha256", *COUNT_KEYS) if k not in manifest]
+    if missing:
+        raise click.ClickException(f"{path} lacks {', '.join(missing)}")
+    return manifest
 
 
 @click.group()
@@ -100,41 +130,54 @@ def export_cmd(url: str) -> None:
         raise click.ClickException("the graph is empty: load it first (python -m etl.loader --url ...)")
     SNAP_DIR.mkdir(exist_ok=True)
     SNAP_FILE.write_bytes(_post(url + "/api/snapshot/export"))
+    after = counts(url)
+    if after != before:   # the graph changed while the file was written: the counts would not describe the file
+        raise click.ClickException("the graph changed during the export; re-run when nothing else is writing to it")
     manifest = {
         "file": SNAP_FILE.name, "bytes": SNAP_FILE.stat().st_size, "sha256": sha256(SNAP_FILE),
         "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "commit": _commit(), "engine_version": _get(url + "/api/status").get("version"),
         "graph": GRAPH, "catalog": "github.com/samyama-ai/ai_research", "catalog_commit": PINNED_COMMIT,
-        **before,
+        **after,
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=1) + "\n")
+    MANIFEST.write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
     click.echo(f"[snapshot] wrote {SNAP_FILE.relative_to(ROOT)} ({manifest['bytes'] / 1e6:.1f} MB): "
-               f"{before['nodes']:,} nodes, {before['edges']:,} edges, engine {manifest['engine_version']}")
-    if manifest["commit"].endswith("-dirty"):
-        click.echo("[snapshot] warning: built from uncommitted changes; commit and re-export before sharing")
+               f"{after['nodes']:,} nodes, {after['edges']:,} edges, engine {manifest['engine_version']}")
+    if manifest["commit"].endswith("-dirty") or manifest["commit"] == "unknown":
+        click.echo(f"[snapshot] warning: repo commit is {manifest['commit']}; commit and re-export before sharing")
 
 
 @cli.command("import")
 @click.option("--url", required=True)
-@click.option("--file", "path", type=click.Path(exists=True, path_type=Path), default=SNAP_FILE)
-def import_cmd(url: str, path: Path) -> None:
+@click.option("--file", "path", type=click.Path(exists=True, path_type=Path), default=SNAP_FILE, show_default=True)
+@click.option("--manifest", "manifest_path", type=click.Path(path_type=Path), default=MANIFEST, show_default=True,
+              help="The manifest that describes --file.")
+def import_cmd(url: str, path: Path, manifest_path: Path) -> None:
     url = url.rstrip("/")
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = _load_manifest(manifest_path)
+    if manifest["file"] != path.name:
+        raise click.ClickException(f"{manifest_path.name} describes {manifest['file']!r}, not {path.name!r}; pass the matching --manifest")
     if sha256(path) != manifest["sha256"]:
-        raise click.ClickException("the snapshot's SHA-256 does not match manifest.json")
+        raise click.ClickException(f"the SHA-256 of {path.name} does not match {manifest_path.name}")
     have = counts(url)["nodes"]
     if have:
         raise click.ClickException(f"the graph already holds {have:,} nodes. Import APPENDS silently and would "
                                    "duplicate everything: use a fresh server container.")
     boundary = uuid.uuid4().hex
-    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{path.name}\"\r\n"
+    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", path.name)      # header-safe: no quotes, CR or LF
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_name}\"\r\n"
             "Content-Type: application/octet-stream\r\n\r\n").encode() + path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
-    _post(url + "/api/snapshot/import", body, f"multipart/form-data; boundary={boundary}")
-    after = counts(url)
-    diffs = {k: (after[k], manifest[k]) for k in ("nodes", "edges", "labels", "relationships") if after[k] != manifest[k]}
+    try:
+        _post(url + "/api/snapshot/import", body, f"multipart/form-data; boundary={boundary}")
+        after = counts(url)
+    except Exception as error:  # the server may now hold part of the graph
+        sys.exit(f"[snapshot] import failed: {error}\n[snapshot] the server may be half-loaded; "
+                 "recreate the container before trying again (DETACH DELETE is not a full reset)")
+    diffs = {k: (after[k], manifest[k]) for k in COUNT_KEYS if after[k] != manifest[k]}
     if diffs:
         click.echo(json.dumps(diffs, indent=1))
-        sys.exit("[snapshot] imported counts differ from the manifest (see above)")
+        sys.exit("[snapshot] imported counts differ from the manifest (see above); the server is half-loaded, "
+                 "recreate the container before trying again")
     click.echo(f"[snapshot] imported and verified: {after['nodes']:,} nodes, {after['edges']:,} edges")
 
 

@@ -27,21 +27,11 @@ from pathlib import Path
 import click
 
 from etl.conformance_lib import (  # noqa: F401  (re-exported for tests and callers)
-    Check, Report, codes, edges_by_type, label_of, load_ontology, load_vocab,
+    TRACKED_FAILURES, TRACKED_OPEN, Check, Report, codes, edges_by_type, label_of, load_ontology, load_vocab,
 )
 from etl.download_data import CATALOG_DIR, PINNED_COMMIT
 from etl.parse import Graph, build_graph, parse_taxonomy, problem_files, split_sections
 
-# Rules the graph breaks today, and where each fix is tracked. The test suite
-# (tests/test_standards.py) expects exactly these failures, so fixing one means removing it here.
-# v1.1 fixed the three v1 failures (two venues per paper O4, the empty id `venue:` C1, no
-# retrieved_at S4), so the dict is empty; a new failure must be added here with its fix.
-TRACKED_FAILURES: dict[str, str] = {}
-# Open points that are not rule failures but need a decision; tracked in issue #6.
-TRACKED_OPEN = {
-    "S8": "ai_research states no licence, so DataSource.licence says 'none stated' → waiting on the lead "
-          "(issue #6; CC BY 4.0 proposed as dbms_research). Blocks publishing a snapshot, not building",
-}
 
 
 # --------------------------------------------------------------------------- #
@@ -368,14 +358,14 @@ def check_coding(r: Report, g: Graph, onto: dict, vocab: dict) -> None:
     r.add(S, "C11", "Venue names are clean venue names (no parser residue)", residue,
           f"{len(venues)} venues, {sum(1 for v in venues if per_venue[v] == 1)} with a single paper; "
           f"{len(residue)} look like residue", info=True)
-    variants = Counter(f"{p.get('venue')} vs {p.get('venue_variants')}" for p in g.nodes["Paper"].values()
-                       if p.get("venue_variants"))
-    r.add(S, "C13", "Papers the catalog gives other venues for (kept in Paper.venue_variants; APPEARED_AT holds the chosen one)",
-          [f"{p} ({n})" for p, n in variants.most_common()], f"{sum(variants.values())} papers", info=True, limit=8)
     persons = g.nodes["Person"]
     short = sum(1 for p in persons.values() if p["name_form"] in ("initials", "surname"))
     r.add(S, "C12", "Person identity: share of names that are initials or surname only (no DBLP/ORCID id in v1)", [],
           f"{short:,} of {len(persons):,} ({short / len(persons):.0%})", info=True)
+    variants = Counter(f"{p.get('venue')} vs {'; '.join(p['venue_variants'])}" for p in g.nodes["Paper"].values()
+                       if p.get("venue_variants"))
+    r.add(S, "C13", "Papers the catalog gives other venues for (kept in Paper.venue_variants; APPEARED_AT holds the chosen one)",
+          [f"{p} ({n})" for p, n in variants.most_common()], f"{sum(variants.values())} papers", info=True, limit=8)
 
 
 # --------------------------------------------------------------------------- #
@@ -450,11 +440,12 @@ def report_header(r: Report, commit: str, nodes: int, edges: int, url: str | Non
         f"{sum(1 for c in r.checks if c.ok is None)} measurements.**"
         + ("" if url else " The engine was not compared in this run (add `--url`)."),
         "",
-        "**Tracked:** every failing rule, and every open point, with where its fix lives "
-        "(tests/test_standards.py expects exactly these failures):",
+        ("**Tracked:** every failing rule, and every open point, with where its fix lives "
+         "(tests/test_standards.py expects exactly these failures):" if TRACKED_FAILURES else
+         "**Tracked:** no rule fails. Open points, and where each is followed up:"),
         "",
     ]
-    lines += [f"- ❌ {cid} — {note}" for cid, note in TRACKED_FAILURES.items()] or ["- no failing rule"]
+    lines += [f"- ❌ {cid} — {note}" for cid, note in TRACKED_FAILURES.items()]
     lines += [f"- ℹ️ {cid} — {note}" for cid, note in TRACKED_OPEN.items()]
     if untracked:
         lines += ["", f"**Untracked failures (fix or track them): {', '.join(untracked)}**"]

@@ -77,8 +77,10 @@ python -m etl.snapshot export --url http://127.0.0.1:8090
 
 ### Or skip the build: load the snapshot
 
-The built graph is shared as `ai-research.sgsnap` (3.5 MB), **outside git** like the other KGs'
-snapshots. Ask the maintainers for it; where it will be hosted is being decided in issue #6.
+The built graph is shared **inside the team** as `ai-research.sgsnap` (3.5 MB), outside git like
+the other KGs' snapshots; it is not published, because the source states no licence yet (S8 in
+`docs/conformance.md`, issue #6). Ask the maintainers for it; where it will be hosted is being
+decided in issue #6.
 `snapshots/manifest.json` records its SHA-256 and counts. Put the file in `snapshots/` and import
 it into a **fresh** server (import appends, so `etl.snapshot import` refuses a non-empty one and
 checks every count against the manifest afterwards):

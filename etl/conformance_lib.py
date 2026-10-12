@@ -19,6 +19,20 @@ ONTOLOGY_PATH = ROOT / "ontology" / "ai_research_kg.ttl"
 VOCAB_PATH = ROOT / "vocab" / "concepts.yaml"
 KG = "https://samyama.ai/kg/ai-research/ontology#"
 
+# Rules the graph breaks today, and where each fix is tracked. The test suite
+# (tests/test_standards.py) expects exactly these failures, so fixing one means removing it here.
+# v1.1 fixed the three v1 failures (two venues per paper O4, the empty id `venue:` C1, no
+# retrieved_at S4), so the dict is empty; a new failure must be added here with its fix.
+TRACKED_FAILURES: dict[str, str] = {}
+# Open points that are not rule failures but need a decision; tracked in issue #6.
+TRACKED_OPEN = {
+    "S8": "ai_research states no licence, so DataSource.licence says 'none stated' → waiting on the lead "
+          "(issue #6; CC BY 4.0 proposed as dbms_research). Blocks publishing a snapshot outside the team; "
+          "building, and sharing the .sgsnap inside the team, go on",
+    "O9": "assumption parsing: v1.1 reads the four forms the catalog uses (list, table, inline (i)/(ii), prose), "
+          "404 → 220 problems without an Assumption; the 6 left that state assumptions use unheaded numbered lists (PR #5)",
+}
+
 
 # --------------------------------------------------------------------------- #
 # Inputs

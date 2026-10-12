@@ -51,7 +51,9 @@ VENUE_ALIASES = [
     ("MLSys", r"\bmlsys\b"), ("OSDI", r"\bosdi\b"), ("SOSP", r"\bsosp\b"),
     ("ASPLOS", r"\basplos\b"), ("ISCA", r"\bisca\b"), ("SC", r"^sc\b|supercomputing"),
     ("Interspeech", r"interspeech"), ("ICASSP", r"\bicassp\b"),
-    ("NSDI", r"\bnsdi\b"), ("FAST", r"usenix fast|^fast(?:\s*'?\d{2,4})?$"), ("USENIX ATC", r"usenix atc"),
+    ("NSDI", r"\bnsdi\b|networked systems design and implementation"),
+    ("FAST", r"usenix fast|^fast(?:\s*'?\d{2,4})?$|conference on file and storage technologies"),
+    ("USENIX ATC", r"usenix atc|usenix annual technical conference"),
     ("CACM", r"\bcacm\b|communications of the acm"),
     ("IJCV", r"\bijcv\b|international journal of computer vision"),
     ("TPAMI", r"\btpami\b|pattern analysis and machine intelligence"),
@@ -62,6 +64,7 @@ VENUE_ALIASES = [
     ("FAccT", r"facct"), ("Nature", r"^nature\b"), ("Science", r"^science\b"),
     ("PNAS", r"\bpnas\b"), ("Transformer Circuits Thread", r"transformer circuits"),
     ("Distill", r"^distill\b"), ("arXiv", r"^arxiv|arxiv preprint|^preprint"),
+    ("OpenReview", r"openreview"),
 ]
 # Preprint servers: a named venue beats these when a paper is cited with several venues.
 PREPRINT_VENUES = {"arXiv", "OpenReview"}

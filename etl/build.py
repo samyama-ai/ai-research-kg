@@ -95,26 +95,29 @@ def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dic
     return texts, raw_refs, title_to_arxiv
 
 
-def catalog_dates(root: Path, commit: str) -> tuple[str, str]:
+def catalog_dates(root: Path, commit: str) -> tuple[str | None, str | None]:
     """(retrieved_at, source_date), both YYYY-MM-DD, read from the lock file next to the catalog
     (`data/ai_research.lock.json`), which etl/download_data.py writes when it fetches the catalog
     and keeps while the checkout stays at that commit. So the dates are the recorded fetch and the
     commit's own date, the same on every rebuild of the same checkout. No lock for this commit
-    (for example the test fixture) gives 'unknown' for both, which conformance check S4 fails."""
+    (for example the test fixture) gives None for both: the properties are then left off the
+    nodes (never a placeholder string, which would break their xsd:date range), and conformance
+    check S4 fails."""
     from etl.download_data import read_lock
 
     lock = read_lock(root.parent / "ai_research.lock.json")
     if not lock or lock.get("commit") != commit:
-        return "unknown", "unknown"
-    retrieved_at = str(lock.get("fetched_at") or "")[:10] or "unknown"
-    source_date = str(lock.get("commit_date") or "")[:10] or "unknown"
+        return None, None
+    retrieved_at = str(lock.get("fetched_at") or "")[:10] or None
+    source_date = str(lock.get("commit_date") or "")[:10] or None
     return retrieved_at, source_date
 
 
-def choose_venues(raw_refs: dict[str, list[dict]], title_to_arxiv: dict[str, str]):
+def choose_venues(raw_refs: dict[str, list[dict]], title_to_arxiv: dict[str, str],
+                  ) -> tuple[dict[str, tuple[str, list[str]]], dict[tuple[str, str], str | None]]:
     """One venue per paper over all its citations: a named venue beats a preprint server, then the
     most frequent, then the first seen. Returns paper id -> (venue, other named venues) and the
-    raw venue text behind each chosen (paper, venue)."""
+    raw venue text behind each (paper, venue) pair."""
     seen: dict[str, list[str]] = defaultdict(list)
     raw_of: dict[tuple[str, str], str | None] = {}
     for refs in raw_refs.values():
@@ -171,7 +174,9 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
     base_url = f"{REPO_WEB}/blob/{commit}"
     # provenance dates: when the pinned catalog was fetched, and the date of that version
     retrieved_at, source_date = catalog_dates(root, commit)
-    common = {"provenance": "real", "source": SOURCE, "retrieved_at": retrieved_at, "source_date": source_date}
+    common = {"provenance": "real", "source": SOURCE}
+    if retrieved_at and source_date:        # absent, not a placeholder, when the catalog has no recorded fetch
+        common.update(retrieved_at=retrieved_at, source_date=source_date)
 
     g.add_node("DataSource", "datasource:ai_research", name="ai_research catalog",
                url=REPO_WEB, version=commit, licence=LICENCE_NOTE, **common)
@@ -216,7 +221,7 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
                        doi=r["doi"], venue=venue,
                        venue_raw=venue_raw_of.get((ppid, venue)) if venue else r["venue_raw"],
-                       venue_variants="; ".join(variants) or None,
+                       venue_variants=variants or None,      # a list: one entry per other named venue
                        authors_raw=r["authors_raw"], method="parsed",
                        source_url=src_url, **common)
             g.add_edge("Problem", pid, "CITES", "Paper", ppid,

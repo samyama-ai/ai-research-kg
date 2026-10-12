@@ -74,12 +74,12 @@ def role_bucket(tag: str) -> str:
 
 def normalise_venue(raw: str) -> str | None:
     raw = raw.strip(" .,;:—–-/(")
-    if not re.search(r"[A-Za-z]{2}", raw) or re.match(r"identifier omitted", raw, re.I):
-        return None  # parser residue such as "(" is not a venue
     low = raw.lower()
-    for canonical, pat in VENUE_ALIASES:
+    for canonical, pat in VENUE_ALIASES:      # aliases first, so "S&P" is a venue although it has no two letters in a row
         if re.search(pat, low):
             return canonical
+    if not re.search(r"[A-Za-z]{2}", raw) or re.match(r"identifier omitted", raw, re.I):
+        return None  # parser residue such as "(" is not a venue
     raw = re.sub(r"\s*\((?:[^)]*)\)\s*$", "", raw).strip(" .,")
     raw = re.sub(r"\s+\d+(?:\s*\(\d+\))?$", "", raw).strip(" .,")  # "CACM 52" -> "CACM"
     return raw or None
@@ -194,6 +194,7 @@ ASSUMPTION_HEAD_RE = re.compile(
     re.I | re.M)
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
 PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
+LIST_START_RE = re.compile(r"^\s*(?:(?:-|\*|\d+\.)\s+\S|\|\s*\S)")   # a list item (marker, space, text) or table row; "**bold**" is not a bullet
 
 
 def _assumption(item: str, split_name: bool = False) -> dict:
@@ -209,14 +210,15 @@ def _assumption(item: str, split_name: bool = False) -> dict:
 
 
 def _first_block(text: str) -> str:
-    """The list or table directly under a heading: up to the first blank line that is not
-    followed by another list item, table row or indented continuation line."""
+    """The lines under a heading up to its first real break: a blank line is skipped when the next
+    non-empty line is a list item or table row (LIST_START_RE) or starts with whitespace; any other
+    blank line ends the block."""
     lines = text.lstrip("\n").splitlines()
     out = []
     for i, line in enumerate(lines):
         if not line.strip():
             nxt = next((l for l in lines[i + 1:] if l.strip()), "")
-            if not (re.match(r"\s*(?:-|\*|\d+\.|\|)\s*\S", nxt) or nxt.startswith((" ", "\t"))):
+            if not (LIST_START_RE.match(nxt) or nxt.startswith((" ", "\t"))):
                 break
         out.append(line)
     return "\n".join(out)
@@ -232,20 +234,24 @@ def parse_assumptions(formal: str) -> list[dict]:
     line_end = formal.find("\n", m.end())
     inline = formal[m.end(): line_end if line_end != -1 else None].strip()
     below = _first_block(formal[line_end:] if line_end != -1 else "")
-    split_name = True                      # "Name: status — why" items name themselves before the colon
-    if inline and INLINE_ENUM_RE.search(inline):
-        items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
-    elif below.startswith("|"):
-        rows = [r for r in below.splitlines() if r.startswith("|")][2:]
-        items = [" — ".join(c.strip() for c in r.strip("|").split("|")) for r in rows]
-    elif re.match(r"(?:-|\*|\d+\.)\s+\S", below):
-        items = list_items(below)          # text on the heading line is then an introduction
-        split_name = False                 # plain list items keep the v1 naming (lead-in, else first words)
+    out: list[dict] = []
+    # an enumeration on the heading line itself, "(i) ... (ii) ...": either the line starts with a
+    # marker, or at least two markers follow a short introduction. A lone "(1)" in prose ("see
+    # Eq. (1)") is a reference, not an enumeration. A list below the heading is read as well.
+    markers = INLINE_ENUM_RE.findall(inline) if inline else []
+    if markers and (INLINE_ENUM_RE.match(inline) or len(markers) >= 2):
+        out += [_assumption(p.strip(), True) for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+        inline = ""
+    stripped = below.lstrip()
+    if stripped.startswith("|"):
+        rows = [r.strip() for r in stripped.splitlines() if r.strip().startswith("|")][2:]
+        out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in rows]
+    elif LIST_START_RE.match(below):
+        # text on the heading line is then an introduction; plain list items keep the v1 naming
+        out += [_assumption(i, False) for i in list_items("\n".join(l.lstrip() for l in below.splitlines()))]
     elif inline:
-        items = [p.strip() for p in PROSE_ITEM_RE.split(inline) if p.strip()]
-    else:
-        items = []
-    return [_assumption(i, split_name) for i in items if len(strip_md(i)) > 3]
+        out += [_assumption(p.strip(), True) for p in PROSE_ITEM_RE.split(inline) if p.strip()]
+    return [a for a in out if len(a["text"]) > 3]
 
 
 def parse_gaps(not_known: str) -> list[dict]:

@@ -34,13 +34,18 @@
     a owl:Ontology ;
     rdfs:label "AI Research KG ontology" ;
     owl:versionInfo "0.2.1" ;
-    owl:versionIRI <https://samyama.ai/kg/ai-research/ontology/0.2> ;
-    owl:priorVersion <https://samyama.ai/kg/ai-research/ontology/0.1> ;
+    owl:versionIRI <https://samyama.ai/kg/ai-research/ontology/0.2.1> ;
+    owl:priorVersion <https://samyama.ai/kg/ai-research/ontology/0.2> ;
     dcterms:created "2026-10-09"^^xsd:date ;
     dcterms:modified "2026-10-12"^^xsd:date ;
-    rdfs:comment "0.2 (v1.1 graph): adds retrieved_at (required), source_date and venue_variants. 0.2.1: review fixes (kg:propertyName, kg:notRequiredOn, is_primary and score declared, rdfs:subClassOf / rdfs:seeAlso alignments, old-style arXiv ids)." ;
     dcterms:source <https://github.com/samyama-ai/ai_research> ;
-    rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." .
+    rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." ;
+    skos:changeNote "0.1 (2026-10-09): the v1 graph. 0.2 (2026-10-09, v1.1 graph): adds retrieved_at and source_date (both required) and venue_variants. 0.2.1 (2026-10-12): review fixes: kg:propertyName, kg:notRequiredOn, is_primary and score declared, rdfs:subClassOf / rdfs:seeAlso alignments, old-style arXiv ids, venue_variants multi-valued." .
+
+# Earlier versions, so that owl:priorVersion resolves inside this file
+<https://samyama.ai/kg/ai-research/ontology/0.2> a owl:Ontology ; owl:versionInfo "0.2" ;
+    owl:priorVersion <https://samyama.ai/kg/ai-research/ontology/0.1> ; dcterms:created "2026-10-09"^^xsd:date .
+<https://samyama.ai/kg/ai-research/ontology/0.1> a owl:Ontology ; owl:versionInfo "0.1" ; dcterms:created "2026-10-09"^^xsd:date .
 
 # Annotation properties used for cardinality and code lists
 kg:minCount a owl:AnnotationProperty ; rdfs:comment "Each node of the domain class has at least this many edges of this type." .
@@ -201,10 +206,10 @@ kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extracti
     rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource (the rule the checker reads is kg:required + kg:notRequiredOn)." .
 kg:retrieved_at a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
     rdfs:seeAlso prov:generatedAtTime ;
-    rdfs:comment "Date the pinned catalog commit was fetched, read from data/ai_research.lock.json (written by etl/download_data.py at fetch time and kept while the checkout stays at that commit). A date, not a time, so it is not declared a sub-property of prov:generatedAtTime (range xsd:dateTime)." .
+    rdfs:comment "Date the pinned catalog commit was fetched, read from data/ai_research.lock.json (written by etl/download_data.py at fetch time and kept while the checkout stays at that commit). A date, not a time, so it is not declared a sub-property of prov:generatedAtTime (range xsd:dateTime). Left off the node (never a placeholder) when no fetch is recorded; conformance S4 then fails." .
 kg:source_date a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
     rdfs:subPropertyOf dcterms:date ;
-    rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date); the same on every rebuild." .
+    rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date, from the same lock file); the same on every rebuild. Left off the node when no fetch is recorded." .
 kg:source_url a owl:DatatypeProperty ; rdfs:range xsd:anyURI ;
     rdfs:seeAlso prov:hadPrimarySource ;
     rdfs:comment "The exact file at the pinned commit the node was read from: the locator of the node's prov:hadPrimarySource. Stored as a literal, so it is not declared a sub-property of that object property." .
@@ -220,7 +225,7 @@ kg:arxiv_id a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:strin
     rdfs:comment "arXiv identifier: new style YYMM.NNNNN (4 digits after the dot before 2015, 5 from 2015) or old style archive/YYMMNNN (before April 2007)." .
 kg:doi a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ; rdfs:subPropertyOf schema:identifier .
 kg:venue_variants a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
-    rdfs:comment "Other venues the catalog gives for the same paper ('; '-separated); APPEARED_AT holds the chosen one." .
+    rdfs:comment "Other named venues the catalog gives for the same paper; multi-valued (one value per venue; a list property in the property graph). APPEARED_AT holds the chosen one." .
 kg:year a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:gYear .
 kg:name_form a owl:DatatypeProperty ; rdfs:domain kg:Person ; rdfs:range xsd:string ; kg:required true ; kg:codeList "name_form" .
 kg:kind_institution a owl:DatatypeProperty ; rdfs:domain kg:Institution ; rdfs:range xsd:string ; kg:required true ; kg:codeList "institution_kind" ;
