@@ -13,7 +13,6 @@ the container rather than relying on --reset.
 """
 from __future__ import annotations
 
-import subprocess
 import sys
 import time
 from collections import Counter
@@ -21,7 +20,7 @@ from pathlib import Path
 
 import click
 
-from etl.download_data import CATALOG_DIR, download_all
+from etl.download_data import CATALOG_DIR, check_catalog, download_all
 from etl.helpers import create_edges, create_nodes
 from etl.parse import build_graph
 
@@ -78,8 +77,7 @@ def verify(client, graph: str, node_counts: dict, edges: list) -> list[str]:
               help="Verify node and edge counts after loading.")
 def cli(url, graph, reset, check):
     download_all()
-    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=CATALOG_DIR, check=True,
-                            capture_output=True, text=True).stdout.strip()
+    commit = check_catalog(CATALOG_DIR)   # clean checkout at the pinned commit, or stop
     t0 = time.time()
     g = build_graph(CATALOG_DIR, commit)
     node_counts, edge_counts = g.counts()

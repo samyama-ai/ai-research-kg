@@ -157,8 +157,8 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 |---|---|
 | **ACM CCS 2012** | Not used by DBMS; free only for educational and research use |
 | **Semantic Scholar** | Not used by DBMS; ODC-BY needs attribution |
-| **Papers with Code** | Shut down 2025-07-24; leaderboards are out of scope (`scope.md`) |
-| **Benchmark leaderboards, citation counts** | Out of scope: the graph is about problems, not rankings (question 41 returns "no data") |
+| **Papers with Code** | Sunset in late July 2025: paperswithcode.com redirects to Hugging Face's Trending Papers, announced by Hugging Face's CTO on 2025-07-25; only the static GitHub archive remains. Leaderboards are out of scope (`scope.md`) |
+| **Benchmark leaderboards, citation counts** | Out of scope (`scope.md` "Out of scope"): the graph is about problems, not rankings. The two "must return no data" questions are 40 (funding) and 41 (leaderboards) |
 | **An RDF export of the data** | The ontology is in OWL so it can be checked and aligned; the graph itself stays a property graph |
 
 ## What is in the graph (v1)
