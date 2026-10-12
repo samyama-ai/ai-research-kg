@@ -43,11 +43,11 @@ Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
 | Name | Version | Publisher | Licence | Link | Format | Size | Notes |
 |---|---|---|---|---|---|---|---|
 | **ai_research TAXONOMY.md** | git commit (pin in `DataSource`) | Samyama.ai | ⚠️ **no licence file**: ask the lead | github.com/samyama-ai/ai_research | Markdown table | 35 topics | Topic numbers are stable identity, assigned once and never changed. Primary taxonomy. |
-| **arXiv identifier** | current scheme `YYMM.NNNNN` (since 2015) | arXiv / Cornell | metadata CC0 1.0 | info.arxiv.org/help/arxiv_identifier.html | string | 3,081 unique IDs in the catalog; 71% of citations have one | Best join key for papers. Use `arxiv:2406.11779` as `Paper.id`. |
+| **arXiv identifier** | `YYMM.NNNNN` (5 digits since 2015, 4 before; old-style `archive/YYMMNNN` before 2007) | arXiv / Cornell | metadata CC0 1.0 | info.arxiv.org/help/arxiv_identifier.html | string | 3,081 unique IDs in the catalog; 71% of citations have one | Best join key for papers. `Paper.id` is `paper:arxiv:2406.11779` (as `etl/build.py` mints it). Papers without one fall back to `paper:doi:<doi>`, then `paper:t:<12-hex hash of the normalised title>`. |
 | **arXiv category taxonomy** | live list | arXiv | metadata CC0 1.0 | arxiv.org/category_taxonomy | web page / API | ~40 `cs.*` categories, plus `stat.ML`, `eess.*` | Fetched per paper from the arXiv API. Gives each Paper its primary and cross-list categories. |
 | **arXiv API** | legacy API | arXiv | metadata CC0; API terms of use | info.arxiv.org/help/api/tou.html | Atom XML | — | **Max 1 request every 3 seconds, one connection.** Batch up to ~100 IDs per request (`id_list`) and cache in `data/`. |
 | **DOI** | ISO 26324 | DOI Foundation / Crossref | identifiers free; Crossref metadata open | doi.org | string | only 8 citations carry one | Store when present. Never guess one. |
-| **ORCID iD** | — | ORCID | public data file CC0 | orcid.org | 16-digit iD | — | Store only when a lookup returns it. Never infer from a name. |
+| **ORCID iD** | — | ORCID | public data file CC0 | orcid.org | 16 characters in four groups, `0000-0002-1825-0097`; the last is a checksum and can be `X` | — | Store only when a lookup returns it. Never infer from a name. |
 | **DBLP** | live (dump date recorded) | Schloss Dagstuhl | CC0 1.0 | dblp.org | XML dump / search API | covers NeurIPS, ICML, ICLR, ACL, CVPR… | **Primary person resolution, as in DBMS** (which matched 1,966 researchers to a `dblp_pid` + affiliation). Never merge a bare surname into a full name. |
 | **Crossref** | REST API | Crossref | metadata facts, open | api.crossref.org | JSON | — | Verify references that have a DOI (as DBMS `verify_refs.py`). |
 | **DataCite** | REST API | DataCite | CC0 metadata | api.datacite.org | JSON | — | Verify DOIs that Crossref doesn't hold, e.g. arXiv DOIs `10.48550/…` (as DBMS). |
@@ -57,7 +57,7 @@ Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
 | Name | Publisher | Licence | Use |
 |---|---|---|---|
 | **ISO 8601** | ISO | standard (free to follow) | All dates as `YYYY-MM` or `YYYY-MM-DD`. The catalog already uses `YYYY-MM`. |
-| **PROV-O** | W3C | W3C document licence | Property names for provenance: `source`, `source_url`, `retrieved_at`, `method`. Same pattern as the Valuation KG. |
+| **PROV-O** | W3C | W3C document licence | Followed as a naming pattern only, as in the Valuation KG: `source`, `source_url` (the primary source's locator), `method` (the activity) on every node, and `retrieved_at` planned (not in v1). No PROV-O triples are produced and nothing is validated against the ontology. |
 | **SKOS** | W3C | W3C document licence | Vocabulary for crosswalk edges: `exactMatch` / `closeMatch` / `broadMatch` (see Section 3). |
 
 ### 2.3 Optional (not in DBMS; add only if needed)
@@ -73,9 +73,9 @@ Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
 |---|---|
 | **ACM CCS 2012** | Not used by DBMS. Free only for educational and research use; commercial use needs ACM's permission (www.acm.org/publications/class-2012). |
 | **Semantic Scholar** | Not used by DBMS. Its ODC-BY licence also needs attribution in the README. |
-| **Papers with Code** (tasks, methods, leaderboards) | Shut down on 2025-07-24; it now redirects to Hugging Face Trending Papers. Only a frozen snapshot remains, with no updates. Leaderboards are also **out of scope** (`scope.md`). |
+| **Papers with Code** (tasks, methods, leaderboards) | Sunset in late July 2025: paperswithcode.com now redirects to Hugging Face's Trending Papers (huggingface.co/papers), announced by Hugging Face's CTO on 2025-07-25; only the static GitHub archive remains. Leaderboards are also **out of scope** (`scope.md`). |
 | **Benchmark leaderboards** (LMArena, HELM…) | Out of scope: the graph is about problems, not model rankings. |
-| **Citation counts** (Google Scholar, S2) | Out of scope (`scope.md`, question 41 must return "no data"). Google Scholar also has no open licence. |
+| **Citation counts** (Google Scholar, S2) | Out of scope (`scope.md` "Out of scope": citation counts from outside the catalog; the two "must return no data" questions are 40 funding and 41 leaderboards). Google Scholar also has no open licence. |
 
 ### 2.5 Later: Responsible AI extension
 
@@ -96,7 +96,7 @@ The guide says crosswalks are often the most valuable part. They become `MAPS_TO
 
 | From | To | How it's made | Edge |
 |---|---|---|---|
-| our 35 Topics | arXiv categories | **By hand**, then checked by counting the categories of each topic's cited papers | `(:Topic)-[:MAPS_TO {match: 'closeMatch'}]->(:ArxivCategory)` |
+| our 35 Topics | arXiv categories | **By hand**, then checked by counting the categories of each topic's cited papers | `(:Topic)-[:MAPS_TO {match: 'closeMatch' / 'broadMatch'}]->(:ArxivCategory)`: `closeMatch` for the category most of a topic's papers carry, `broadMatch` for a parent category such as `cs.AI` (the example below uses both) |
 | our 35 Topics | OpenAlex topics/subfields *(optional)* | Look up the OpenAlex topics of each topic's cited papers and keep the top 1–3 | `(:Topic)-[:MAPS_TO {match: 'broadMatch' / 'closeMatch'}]->(:ExternalTopic)` |
 | Papers (arXiv ID) | OpenAlex work ID | API lookup | `Paper.openalex_id` property |
 | Authors (name + paper) | DBLP person | DBLP search by title/arXiv ID, then take the author list (as DBMS `dblp_*.py`) | `Person.dblp_pid` property |
@@ -140,4 +140,4 @@ Everything else is optional, on hold, or later.
 - Semantic Scholar licence: api.semanticscholar.org/license
 - DBMS approach: github.com/samyama-ai/dbms_research (README "License", CLAUDE.md, tools/dblp_*.py, tools/verify_refs.py)
 - DBLP licence: dblp.org (CC0)
-- Papers with Code shutdown: coursera.org/articles/papers-with-code
+- Papers with Code shutdown: paperswithcode.com (redirects to huggingface.co/papers); Hugging Face forum thread "Missing dataset after PapersWithCode migration" (discuss.huggingface.co/t/167174); secondary reports hyper.ai/en/news/42900. No primary Meta statement was found; the date is from the Hugging Face announcement

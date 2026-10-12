@@ -10,6 +10,11 @@ stale_since: ""
 provenance: synthesized
 ---
 
+<!-- Test fixture. Copied from ai_research commit a02e87b3, topics/20-interpretability/internals-based-safety-verification.md.
+     Four slips in the source text were corrected here on 2026-10-12 so the fixture does not repeat them
+     (Llama-2-7B has 32 layers, not 16; its MLP activation is SwiGLU, not GELU; the split-tree depth is
+     11,008 x 32 = 3.5e5, not 1e5; two "(frontier - verify)" markers removed). See tests/fixtures/catalog/README.md. -->
+
 # Scalable Verification of Safety Properties From Internals
 
 > **Topic:** Interpretability · **ID:** `20-interpretability/internals-based-safety-verification` · **Status:** solved-but-impractical
@@ -86,8 +91,8 @@ Three distinct obstructions, only the first of which is compute.
 ## 7. Current Research (as of 2026)
 
 - **Guaranteed Safe AI** (Dalrymple, Bengio, Russell, Tegmark, Tenenbaum et al. 2024): world-model + specification + verifier architecture; positions internals-verification as one leg. Programmatic, not yet empirical.
-- **Compact proofs / proof-length-vs-bound frontier**: Gross, Chughtai and collaborators; extension to multi-layer models *(frontier — verify)*.
-- **Parameter-space decomposition** as a substitute for activation-space SAEs — attribution-based parameter decomposition, Apollo Research 2025 — motivated explicitly by the non-identifiability problem *(frontier — verify)*.
+- **Compact proofs / proof-length-vs-bound frontier**: Gross, Chughtai and collaborators; extension to multi-layer models.
+- **Parameter-space decomposition** as a substitute for activation-space SAEs — attribution-based parameter decomposition, Apollo Research 2025 — motivated explicitly by the non-identifiability problem.
 - **Anthropic / GDM interpretability teams**: auditing games, SAE-based feature steering, Gemma Scope releases. Framing has shifted from "certify" to "audit with evidence".
 - **Formal-methods side**: VNN-COMP continues; incremental attention-verification work exists but at $10^6$-parameter scale.
 - **Open Problems in Mechanistic Interpretability** (Sharkey et al. 2025) names verification-from-internals as an explicit open goal.
@@ -122,11 +127,11 @@ Take the refusal direction $r\in\mathbb{R}^{4096}$ found in Llama-2-7B-chat (Ard
 
 Empirically the direction works: ablating $r$ collapses refusal across the harmful test set; adding it induces refusal on harmless prompts. That is a strong causal result.
 
-Now try to certify it. To bound $\min_{x\in\mathcal{X}} \langle h_\ell(x), r\rangle$ over $\mathcal{X}$ = "all 20-token adversarial suffixes appended to a fixed harmful prompt", the input set has $32000^{20}\approx10^{90}$ elements. Symbolic relaxation instead: propagate interval bounds through 16 layers. Each layer's attention softmax and MLP GELU widens the interval; with $d_{\text{model}}=4096$ and 16 layers, the relaxed bound on $s(x)$ after ~4 layers already spans both signs for essentially every coordinate. The certified statement becomes $\hat p_{\text{cert}}=1$: "the model may refuse or may not." Sound, vacuous.
+Now try to certify it. To bound $\min_{x\in\mathcal{X}} \langle h_\ell(x), r\rangle$ over $\mathcal{X}$ = "all 20-token adversarial suffixes appended to a fixed harmful prompt", the input set has $32000^{20}\approx10^{90}$ elements. Symbolic relaxation instead: propagate interval bounds through 32 layers. Each layer's attention softmax and MLP SwiGLU widens the interval; with $d_{\text{model}}=4096$ and 32 layers, the relaxed bound on $s(x)$ after ~4 layers already spans both signs for essentially every coordinate. The certified statement becomes $\hat p_{\text{cert}}=1$: "the model may refuse or may not." Sound, vacuous.
 
-Branch-and-bound would tighten this by case-splitting unstable neurons. Count them: with $11008$ MLP neurons per layer $\times$ 32 layers, and empirically almost none sign-stable over a 20-token free suffix, the split tree has depth $\sim10^5$. At $2^{10^5}$ leaves this is not a compute-budget problem.
+Branch-and-bound would tighten this by case-splitting unstable neurons. Count them: with $11008$ MLP neurons per layer $\times$ 32 layers $\approx 3.5\times10^5$ unstable neurons, and empirically almost none sign-stable over a 20-token free suffix, the split tree has depth $\sim3.5\times10^5$. At $2^{3.5\times10^5}$ leaves this is not a compute-budget problem.
 
 And the illusion risk is live even for the empirical result: the same paper's method family is exactly what Makelov et al. show can latch onto dormant subspaces. So the strongest thing available is: **a causally validated direction with no bound, and a bound procedure that returns "anything may happen."** That is the shape of the whole problem — the toy case is genuinely solved, and every route from there to a real model either goes vacuous or goes exponential.
 
 ---
-*Part of the [AI Research catalog](../../README.md). Schema: [TEMPLATE.md](../../TEMPLATE.md).*
+*Part of the [AI Research catalog](https://github.com/samyama-ai/ai_research/blob/a02e87b368016fd9568ba5ae8561ea601a8dee41/README.md). Schema: [TEMPLATE.md](https://github.com/samyama-ai/ai_research/blob/a02e87b368016fd9568ba5ae8561ea601a8dee41/TEMPLATE.md).*
