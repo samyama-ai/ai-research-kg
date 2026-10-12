@@ -10,8 +10,6 @@ the edge (`method`, `shared_papers`, `score`).
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -97,21 +95,20 @@ def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dic
     return texts, raw_refs, title_to_arxiv
 
 
-def _git(root: Path, *args: str) -> str:
-    try:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True,
-                              check=True, timeout=30).stdout.strip()
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, NotADirectoryError):
-        return ""
-
-
 def catalog_dates(root: Path, commit: str) -> tuple[str, str]:
-    """(retrieved_at, source_date), both YYYY-MM-DD. retrieved_at is when the pinned commit was
-    checked out here (git's reflog for HEAD), source_date the commit's own date. A checkout
-    without git (the test fixture) gives 'unknown' for both."""
-    source_date = _git(root, "log", "-1", "--format=%cs", commit) or "unknown"
-    m = re.search(r"@\{(\d{4}-\d{2}-\d{2})\}", _git(root, "log", "-g", "-1", "--date=short", "--format=%gd", "HEAD"))
-    return (m.group(1) if m else "unknown"), source_date
+    """(retrieved_at, source_date), both YYYY-MM-DD, read from the lock file next to the catalog
+    (`data/ai_research.lock.json`), which etl/download_data.py writes when it fetches the catalog
+    and keeps while the checkout stays at that commit. So the dates are the recorded fetch and the
+    commit's own date, the same on every rebuild of the same checkout. No lock for this commit
+    (for example the test fixture) gives 'unknown' for both, which conformance check S4 fails."""
+    from etl.download_data import read_lock
+
+    lock = read_lock(root.parent / "ai_research.lock.json")
+    if not lock or lock.get("commit") != commit:
+        return "unknown", "unknown"
+    retrieved_at = str(lock.get("fetched_at") or "")[:10] or "unknown"
+    source_date = str(lock.get("commit_date") or "")[:10] or "unknown"
+    return retrieved_at, source_date
 
 
 def choose_venues(raw_refs: dict[str, list[dict]], title_to_arxiv: dict[str, str]):

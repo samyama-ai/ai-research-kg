@@ -248,6 +248,7 @@ ARXIV_NEW_RE = re.compile(r"^(\d{2})(\d{2})\.(\d{4,5})$")                  # 240
 ARXIV_OLD_RE = re.compile(r"^[a-z-]+(?:\.[A-Z]{2})?/(\d{2})(\d{2})\d{3}$")   # cs/0112017, math.GT/0309136
 DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
 YM_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+YMD_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
 
 def arxiv_year_month(arxiv_id: str) -> tuple[int, int] | None:
@@ -367,7 +368,7 @@ def check_coding(r: Report, g: Graph, onto: dict, vocab: dict) -> None:
     r.add(S, "C11", "Venue names are clean venue names (no parser residue)", residue,
           f"{len(venues)} venues, {sum(1 for v in venues if per_venue[v] == 1)} with a single paper; "
           f"{len(residue)} look like residue", info=True)
-    variants = Counter(f"{p['venue']} vs {p['venue_variants']}" for p in g.nodes["Paper"].values()
+    variants = Counter(f"{p.get('venue')} vs {p.get('venue_variants')}" for p in g.nodes["Paper"].values()
                        if p.get("venue_variants"))
     r.add(S, "C13", "Papers the catalog gives other venues for (kept in Paper.venue_variants; APPEARED_AT holds the chosen one)",
           [f"{p} ({n})" for p, n in variants.most_common()], f"{sum(variants.values())} papers", info=True, limit=8)
@@ -392,12 +393,12 @@ def check_standards(r: Report, g: Graph) -> None:
           [f"{l}: {n}" for l, n in no_url.items() if l not in ("Institution", "Obstruction", "DataSource")],
           "pass; shared nodes (" + ", ".join(f"{l} {n}" for l, n in sorted(no_url.items()))
           + ") have no single page, by design")
-    r.add(S, "S4", "PROV-O dates on every node, as docs/schema.md §4 requires: `retrieved_at` (when the pinned "
-          "catalog was fetched) and `source_date` (the date of that catalog version)",
-          sorted({l for l, nodes in g.nodes.items() for n in nodes.values()
-                  if not n.get("retrieved_at") or not n.get("source_date")}),
-          f"{sum(1 for v in g.nodes.values() for n in v.values() if n.get('retrieved_at') and n.get('source_date')):,} of "
-          f"{sum(len(v) for v in g.nodes.values()):,} nodes carry both")
+    undated = [l for l, nodes in g.nodes.items() for n in nodes.values()
+               if not (YMD_RE.match(str(n.get("retrieved_at", ""))) and YMD_RE.match(str(n.get("source_date", ""))))]
+    total = sum(len(v) for v in g.nodes.values())
+    r.add(S, "S4", "PROV-O dates on every node, as docs/schema.md §4 requires: `retrieved_at` (the recorded fetch, "
+          "data/ai_research.lock.json) and `source_date` (the catalog version's date), real YYYY-MM-DD dates ('unknown' fails)",
+          sorted(set(undated)), f"{total - len(undated):,} of {total:,} nodes carry both")
     r.add(S, "S5", "Edges carry provenance (docs/schema.md §4: 'every node and edge'); today only the problem page at the edge's source implies it",
           sorted({e[2] for e in g.edges if not (e[5] or {}).get("source")}),
           "no edge carries `source`", info=True)

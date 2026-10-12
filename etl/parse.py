@@ -161,7 +161,13 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken|(?:—|–|:)\s*false\b(?!\s+(?:positives?|alarms?|discover))|(?:^|[.;]\s+)false\b|\bfalse in practice", re.I)
+# "false" as a verdict, but not "false positives", "false-positive rate", "false alarms", "false discovery"
+_NOT_A_VERDICT = r"(?![\s-]+(?:positives?|alarms?|discover\w*|negatives?)\b)"
+VIOLATED_RE = re.compile(
+    r"\bviolated\b|\bfails?\b|does not hold|broken"
+    r"|(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
+    + r"|(?:^|[.;]\s+)false\b" + _NOT_A_VERDICT
+    + r"|\bfalse in practice", re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|approximately|weakly|sometimes|mostly", re.I)
 HOLDS_RE = re.compile(r"\bholds\b|\breasonable\b|\bsafe\b", re.I)
 MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b", re.I)   # "true for X ...; false for Y"
@@ -179,16 +185,24 @@ def assumption_status(text: str) -> str:
 
 # a heading, not emphasis: bold that starts with "Assumption(s)" and ends with ":" or "." (inside
 # or right after the bold). It may sit mid-paragraph, as it does on many pages
+# Two shapes count as a heading: bold starting with "Assumption(s)" that ends in ":" or "."
+# (inside or right after the bold; may sit mid-paragraph), or such bold alone on its line
+# (optionally as a list item). Bold that merely mentions an assumption mid-sentence does not.
 ASSUMPTION_HEAD_RE = re.compile(
-    r"\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?(?:[:.]\*\*|\*\*[:.])", re.I)
+    r"\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?(?:[:.]\*\*|\*\*[:.])"
+    r"|^[ \t]*(?:[-*]\s+)?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?\*\*[ \t]*$",
+    re.I | re.M)
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
 PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
 
 
-def _assumption(item: str) -> dict:
+def _assumption(item: str, split_name: bool = False) -> dict:
+    """One assumption. The name is the italic or bold lead-in; with `split_name` (table rows and
+    prose items, which are written "Name: status — why") the text before the first colon or dash;
+    otherwise (plain list items, as in v1) the first eight words."""
     nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
         re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item) or \
-        re.match(r"([^:—]{2,100}?)\s*(?::|—|–| - )\s*(.*)", item)
+        (split_name and re.match(r"([^:—]{2,100}?)\s*(?::|—|–| - )\s*(.*)", item))
     name = strip_md(nm.group(1)) if nm else " ".join(strip_md(item).split()[:8])
     text = strip_md(item)
     return {"name": name[:160], "text": text[:1200], "violated": assumption_status(text)}
@@ -196,13 +210,13 @@ def _assumption(item: str) -> dict:
 
 def _first_block(text: str) -> str:
     """The list or table directly under a heading: up to the first blank line that is not
-    followed by another list item, table row or indented continuation."""
+    followed by another list item, table row or indented continuation line."""
     lines = text.lstrip("\n").splitlines()
     out = []
     for i, line in enumerate(lines):
         if not line.strip():
             nxt = next((l for l in lines[i + 1:] if l.strip()), "")
-            if not re.match(r"\s*(?:-|\*|\d+\.|\|)\s*\S", nxt):
+            if not (re.match(r"\s*(?:-|\*|\d+\.|\|)\s*\S", nxt) or nxt.startswith((" ", "\t"))):
                 break
         out.append(line)
     return "\n".join(out)
@@ -218,6 +232,7 @@ def parse_assumptions(formal: str) -> list[dict]:
     line_end = formal.find("\n", m.end())
     inline = formal[m.end(): line_end if line_end != -1 else None].strip()
     below = _first_block(formal[line_end:] if line_end != -1 else "")
+    split_name = True                      # "Name: status — why" items name themselves before the colon
     if inline and INLINE_ENUM_RE.search(inline):
         items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
     elif below.startswith("|"):
@@ -225,11 +240,12 @@ def parse_assumptions(formal: str) -> list[dict]:
         items = [" — ".join(c.strip() for c in r.strip("|").split("|")) for r in rows]
     elif re.match(r"(?:-|\*|\d+\.)\s+\S", below):
         items = list_items(below)          # text on the heading line is then an introduction
+        split_name = False                 # plain list items keep the v1 naming (lead-in, else first words)
     elif inline:
         items = [p.strip() for p in PROSE_ITEM_RE.split(inline) if p.strip()]
     else:
         items = []
-    return [_assumption(i) for i in items if len(strip_md(i)) > 3]
+    return [_assumption(i, split_name) for i in items if len(strip_md(i)) > 3]
 
 
 def parse_gaps(not_known: str) -> list[dict]:

@@ -178,3 +178,33 @@ def test_venue_raw_matches_the_chosen_venue(graph):
     for p in graph.nodes["Paper"].values():
         if p.get("venue") and p.get("venue_raw"):
             assert normalise_venue(p["venue_raw"]) == p["venue"], p["id"]
+
+
+def test_bare_assumptions_heading_and_plain_list_names():
+    from etl.parse import parse_assumptions
+    bare = "**Assumptions**\n- *Linear features.* Violated.\n- Features are directions — violated by circular features (Engels 2024).\n"
+    items = parse_assumptions(bare)
+    # the plain list item keeps the v1 naming: lead-in if italic/bold, else the first eight words
+    assert [a["name"] for a in items] == ["Linear features", "Features are directions — violated by circular features"]
+    assert [a["violated"] for a in items] == ["violated", "violated"]
+    emphasis = "The **assumption** here is strong.\n- not an assumption list\n"
+    assert parse_assumptions(emphasis) == []
+
+
+def test_false_positive_forms_are_not_verdicts():
+    from etl.parse import assumption_status
+    assert assumption_status("Rare: false-positive rate stays below 1%.") == "unstated"
+    assert assumption_status("Rare: false positives are filtered out.") == "unstated"
+    assert assumption_status("Independence: false — heads share subspaces.") == "violated"
+
+
+def test_catalog_dates_come_from_the_lock_file(tmp_path):
+    import json
+    from etl.build import catalog_dates
+    root = tmp_path / "ai_research"
+    root.mkdir()
+    assert catalog_dates(root, "abc") == ("unknown", "unknown")
+    (tmp_path / "ai_research.lock.json").write_text(json.dumps(
+        {"commit": "abc", "fetched_at": "2026-10-07T09:12:00+00:00", "commit_date": "2026-09-10T03:38:11+05:30"}))
+    assert catalog_dates(root, "abc") == ("2026-10-07", "2026-09-10")
+    assert catalog_dates(root, "other") == ("unknown", "unknown")

@@ -85,7 +85,7 @@ Uniqueness across the whole graph is checked in `tests/test_invariants.py`; the 
 | `provenance` | `real` (the Samyama build-guide flag: parsed from a real source, not synthetic) | every node |
 | `source` | `ai_research` | every node |
 | `method` | `parsed` (29,639 nodes), `keyword-classified` (the 6 Obstruction nodes), `name-matched` (the 50 Institution nodes) | every node except DataSource |
-| `retrieved_at` | `2026-10-07`: the date the pinned catalog was fetched (git's reflog of the checkout) | every node |
+| `retrieved_at` | `2026-10-07`: the date the pinned catalog was fetched, from `data/ai_research.lock.json` (written by `etl/download_data.py` at fetch time, kept while the checkout stays at that commit) | every node |
 | `source_date` | `2026-09-10`: the date of the pinned commit | every node |
 | `source_url` | `https://github.com/samyama-ai/ai_research/blob/<commit>/<file>` | every node read from one page (not Institution, Obstruction, DataSource, which are shared) |
 | `catalog_provenance` | the catalog's own frontmatter flag on its prose: `synthesized` for all 1,000 | Problem |

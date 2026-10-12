@@ -201,7 +201,7 @@ kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extracti
     rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource (the rule the checker reads is kg:required + kg:notRequiredOn)." .
 kg:retrieved_at a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
     rdfs:seeAlso prov:generatedAtTime ;
-    rdfs:comment "Date the pinned catalog commit was fetched (git's reflog for the checkout). A date, not a time, so it is not declared a sub-property of prov:generatedAtTime (range xsd:dateTime)." .
+    rdfs:comment "Date the pinned catalog commit was fetched, read from data/ai_research.lock.json (written by etl/download_data.py at fetch time and kept while the checkout stays at that commit). A date, not a time, so it is not declared a sub-property of prov:generatedAtTime (range xsd:dateTime)." .
 kg:source_date a owl:DatatypeProperty ; rdfs:range xsd:date ; kg:required true ;
     rdfs:subPropertyOf dcterms:date ;
     rdfs:comment "Date of the catalog version the node was read from (the pinned commit's date); the same on every rebuild." .

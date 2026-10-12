@@ -85,7 +85,7 @@ The catalog's own 669 free-text tags are kept in `role_raw`.
 
 ## Properties and code lists
 
-Every node carries `id`, `source`, `provenance`, `retrieved_at` (when the pinned catalog was fetched, from git's reflog), `source_date` (the date of that catalog version) and (all but `DataSource`) `method`. Nodes read
+Every node carries `id`, `source`, `provenance`, `retrieved_at` (when the pinned catalog was fetched, from `data/ai_research.lock.json`, written at fetch time), `source_date` (the date of that catalog version) and (all but `DataSource`) `method`. Nodes read
 from one page also carry `source_url` at the pinned commit (`prov:hadPrimarySource`). Properties
 whose values come from a fixed list point to their scheme in
 [`vocab/concepts.yaml`](../vocab/concepts.yaml):
