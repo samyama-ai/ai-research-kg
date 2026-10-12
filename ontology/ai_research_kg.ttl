@@ -225,7 +225,7 @@ kg:arxiv_id a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:strin
     rdfs:comment "arXiv identifier: new style YYMM.NNNNN (4 digits after the dot before 2015, 5 from 2015) or old style archive/YYMMNNN (before April 2007)." .
 kg:doi a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ; rdfs:subPropertyOf schema:identifier .
 kg:venue_variants a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
-    rdfs:comment "Other named venues the catalog gives for the same paper; multi-valued (one value per venue; a list property in the property graph). APPEARED_AT holds the chosen one." .
+    rdfs:comment "Every other venue the catalog gives for the same paper, preprint servers included; multi-valued (one value per venue; a list property in the property graph). APPEARED_AT holds the chosen one." .
 kg:year a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:gYear .
 kg:name_form a owl:DatatypeProperty ; rdfs:domain kg:Person ; rdfs:range xsd:string ; kg:required true ; kg:codeList "name_form" .
 kg:kind_institution a owl:DatatypeProperty ; rdfs:domain kg:Institution ; rdfs:range xsd:string ; kg:required true ; kg:codeList "institution_kind" ;

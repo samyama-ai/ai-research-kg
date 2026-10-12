@@ -24,7 +24,14 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 REPO_URL = "https://github.com/samyama-ai/ai_research.git"
 PINNED_COMMIT = "a02e87b368016fd9568ba5ae8561ea601a8dee41"  # 2026-09-10, 1,000 problems
 CATALOG_DIR = DATA_DIR / "ai_research"
-LOCK_PATH = DATA_DIR / "ai_research.lock.json"
+
+
+def lock_path(root: Path = CATALOG_DIR) -> Path:
+    """The lock file that records the fetch of the catalog checkout at `root`: next to it, `<name>.lock.json`."""
+    return root.with_name(root.name + ".lock.json")
+
+
+LOCK_PATH = lock_path(CATALOG_DIR)
 
 
 class CatalogError(RuntimeError):

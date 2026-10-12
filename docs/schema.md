@@ -2,14 +2,15 @@
 
 The graph as `etl/build.py` builds it and `etl/loader.py` loads it: 11 node labels, 11 edge
 types, 29,696 nodes and 62,845 edges from the `ai_research` catalog at commit `a02e87b3`
-(v1.1, 2026-10-09; counts re-measured 2026-10-12; `tests/test_invariants.py` pins them).
+(v1.1, 2026-10-09; counts re-measured 2026-10-12; `tests/test_invariants.py` pins them). v1
+(2026-10-07) had 28,960 nodes and 62,178 edges; §7 says what changed.
 The Phase 1 design this grew out of is kept in [schema-v0.1-plan.md](schema-v0.1-plan.md);
 §7 lists what was planned and not built. The standards, code lists and ontology file are in
 [standards.md](standards.md).
 
 | | |
 |---|---|
-| Version | v1.1 (2026-10-09; v1 was 2026-10-07 with 28,960 nodes / 62,178 edges) |
+| Version | v1.1 (2026-10-09) |
 | Graph model | labelled property graph, openCypher (Samyama Graph 1.11.0) |
 | Node labels | 11 |
 | Edge types | 11, one computed (`RELATED_TO`) and one bookkeeping (`FROM_SOURCE`) |
@@ -44,7 +45,7 @@ Every node also carries the provenance fields of §4. Counts are for the v1.1 gr
 |---|---:|---|---|---|
 | `Problem` | 1,000 | catalog page | `title`, `slug`, `status`, `topic`, `first_added`, `last_reviewed`, `last_substantive_update`, `stale_since`, `catalog_provenance`, `statement` (opening paragraphs) | frontmatter + "Problem Statement" |
 | `Topic` | 35 | TAXONOMY.md row | `number` (1–35, stable), `name`, `slug`, `scope` | `TAXONOMY.md` |
-| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` (one per paper: a named venue beats a preprint server, then the most frequent), `venue_raw`, `venue_variants` (list of the catalog's other named venues), `authors_raw` | "Key References" |
+| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` (one per paper: a named venue beats a preprint server, then the most frequent), `venue_raw`, `venue_variants` (list of every other venue the catalog gives for the paper, preprint servers included), `authors_raw` | "Key References" |
 | `Person` | 15,097 | author string as written | `name`, `name_form` (full / initials / surname / collective) | author lists in "Key References" |
 | `Venue` | 522 | normalised venue name | `name` | venue text of each reference, through the alias list in `etl/rules.py` |
 | `Institution` | 50 | lab on the fixed list that occurs | `name`, `kind` (industry / academic / non-profit / government) | "Current Research", matched against 51 names (`etl/rules.py: INSTITUTIONS`; MIRI never occurs) |

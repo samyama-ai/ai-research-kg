@@ -97,15 +97,16 @@ def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dic
 
 def catalog_dates(root: Path, commit: str) -> tuple[str | None, str | None]:
     """(retrieved_at, source_date), both YYYY-MM-DD, read from the lock file next to the catalog
-    (`data/ai_research.lock.json`), which etl/download_data.py writes when it fetches the catalog
+    (`lock_path(root)`, i.e. `<root>.lock.json`, the one place that layout is defined), which
+    etl/download_data.py writes when it fetches the catalog
     and keeps while the checkout stays at that commit. So the dates are the recorded fetch and the
     commit's own date, the same on every rebuild of the same checkout. No lock for this commit
     (for example the test fixture) gives None for both: the properties are then left off the
     nodes (never a placeholder string, which would break their xsd:date range), and conformance
     check S4 fails."""
-    from etl.download_data import read_lock
+    from etl.download_data import lock_path, read_lock
 
-    lock = read_lock(root.parent / "ai_research.lock.json")
+    lock = read_lock(lock_path(root))
     if not lock or lock.get("commit") != commit:
         return None, None
     retrieved_at = str(lock.get("fetched_at") or "")[:10] or None
@@ -114,24 +115,26 @@ def catalog_dates(root: Path, commit: str) -> tuple[str | None, str | None]:
 
 
 def choose_venues(raw_refs: dict[str, list[dict]], title_to_arxiv: dict[str, str],
-                  ) -> tuple[dict[str, tuple[str, list[str]]], dict[tuple[str, str], str | None]]:
+                  ) -> tuple[dict[str, tuple[str, list[str]]], dict[tuple[str, str], tuple[str | None, str]]]:
     """One venue per paper over all its citations: a named venue beats a preprint server, then the
-    most frequent, then the first seen. Returns paper id -> (venue, other named venues) and the
-    raw venue text behind each (paper, venue) pair."""
+    most frequent, then the first seen. Returns paper id -> (venue, every other venue the catalog
+    gives, preprint servers included) and, for each (paper, venue) pair, the raw venue text and
+    the page (raw_refs key) it was first read from, so the Venue node's provenance names a page
+    that really carries that venue."""
     seen: dict[str, list[str]] = defaultdict(list)
-    raw_of: dict[tuple[str, str], str | None] = {}
-    for refs in raw_refs.values():
+    first_seen: dict[tuple[str, str], tuple[str | None, str]] = {}
+    for page, refs in raw_refs.items():
         for r in refs:
             if r["venue"]:
                 ppid = paper_id(r, title_to_arxiv)
                 seen[ppid].append(r["venue"])
-                raw_of.setdefault((ppid, r["venue"]), r["venue_raw"])
+                first_seen.setdefault((ppid, r["venue"]), (r["venue_raw"], page))
     chosen: dict[str, tuple[str, list[str]]] = {}
     for ppid, names in seen.items():
         counts = Counter(names)
         ranked = sorted(dict.fromkeys(names), key=lambda v: (v in PREPRINT_VENUES, -counts[v]))
-        chosen[ppid] = (ranked[0], [v for v in ranked[1:] if v not in PREPRINT_VENUES])
-    return chosen, raw_of
+        chosen[ppid] = (ranked[0], ranked[1:])
+    return chosen, first_seen
 
 
 def paper_id(r: dict, title_to_arxiv: dict[str, str]) -> str:
@@ -189,7 +192,8 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
                    scope=t["scope"], source_url=f"{base_url}/TAXONOMY.md", method="parsed", **common)
 
     texts, raw_refs, title_to_arxiv = _collect_references(root)
-    paper_venue, venue_raw_of = choose_venues(raw_refs, title_to_arxiv)
+    paper_venue, venue_first_seen = choose_venues(raw_refs, title_to_arxiv)
+    page_url = {str(path): f"{base_url}/{path.relative_to(root).as_posix()}" for path in texts}
     problem_papers: dict[str, set[str]] = {}
 
     for path, text in texts.items():
@@ -218,10 +222,11 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
             ppid = paper_id(r, title_to_arxiv)
             papers_here.add(ppid)
             venue, variants = paper_venue.get(ppid, (None, []))
+            venue_raw, venue_page = venue_first_seen.get((ppid, venue), (None, None))
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
                        doi=r["doi"], venue=venue,
-                       venue_raw=venue_raw_of.get((ppid, venue)) if venue else r["venue_raw"],
-                       venue_variants=variants or None,      # a list: one entry per other named venue
+                       venue_raw=venue_raw,                  # None when no venue was chosen: residue is not a venue
+                       venue_variants=variants or None,      # a list: one entry per other venue the catalog gives
                        authors_raw=r["authors_raw"], method="parsed",
                        source_url=src_url, **common)
             g.add_edge("Problem", pid, "CITES", "Paper", ppid,
@@ -234,7 +239,7 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
             if venue:
                 vid = f"venue:{slug(venue)}"
                 g.add_node("Venue", vid, name=venue, method="parsed",
-                           source_url=src_url, **common)
+                           source_url=page_url[venue_page], **common)   # the page that names this venue
                 g.add_edge("Paper", ppid, "APPEARED_AT", "Venue", vid)
         problem_papers[pid] = papers_here
 

@@ -4,8 +4,10 @@ Every standard, coding system, taxonomy and ontology the AI Research KG is built
 the graph from each, what is only planned, and whether the graph keeps its rules. Layout follows
 [enterprise-valuation-kg docs/standards.md](https://git.samyama.ai/Samyama.ai/enterprise-valuation-kg/src/branch/main/docs/standards.md).
 
-v0.3.1, 2026-10-12. v0.2 (2026-10-07) chose the sources; v0.3 (2026-10-09) added what the graph
-actually holds and checks it; v0.3.1 answers the AI review (counts, status icons, sources).
+v0.3.2, 2026-10-12. v0.2 (2026-10-07) chose the sources; v0.3 (2026-10-09) added what the graph
+actually holds and checks it; v0.3.1 (2026-10-12) answered the AI review of PR #3 (counts, status
+icons, sources); v0.3.2 (2026-10-12) describes v1.1: provenance dates from the fetch lock, one
+venue per paper with `venue_variants`, the venue arithmetic below, and the engine check of that day.
 Numbers are for **v1.1** (29,696 nodes, 62,845 edges), which fixed the three rules v1 broke.
 Every count is measured by `python -m etl.conformance`, with the check ids
 from [conformance.md](conformance.md).
@@ -49,9 +51,9 @@ use have their own section, with no icon.
 
 **What v1.1 measures about the planned identifiers.** 52% of the 15,097 author names are
 initials or a surname only, so people can't be told apart without DBLP (C12). There are 522 venue
-names, 24 of them still look like parser residue, and for 67 papers the catalog names a second
-venue (kept in `Paper.venue_variants`) (C11, C13), so venues need a canonical key such as the
-DBLP stream. ROR and OpenAlex are optional
+names, 24 of them still look like parser residue, and 77 papers are cited with more than one
+venue (the others kept in `Paper.venue_variants`) (C11, C13), so venues need a canonical key such
+as the DBLP stream. ROR and OpenAlex are optional
 because the DBMS KG managed without them.
 
 ### Reference-checking services (planned, as DBMS `tools/verify_refs.py` and `dblp_*.py`)
@@ -183,14 +185,16 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 
 ## Known limits (measured)
 
-- **Venues:** each paper has one venue (a named venue beats arXiv, then the most cited). In v1, 87
-  papers had more than one `APPEARED_AT` edge (103 surplus edges; one paper had 7): for 13 of them
-  the second venue was just arXiv next to a named venue, and for 7 more the duplicate came from a
-  residue string or an alias that v1.1 now resolves (`NSDI` = `USENIX NSDI`, `CACM`, `IJCV`,
-  `TPAMI`). That leaves 67 papers whose catalog pages genuinely name two venues; the other one is
-  kept in `Paper.venue_variants` (C13). In 10 of them the catalog contradicts itself about the
-  conference (ICLR vs ICML 8 times, ICML vs NeurIPS twice), unchanged from v1. 24 venue names
-  still look like residue (C11).
+- **Venues:** each paper has one venue (a named venue beats a preprint server, then the most
+  cited, then the first seen). In v1, 87 papers had more than one `APPEARED_AT` edge (103 surplus
+  edges; one paper had 7). Ten of those duplicates came from residue strings or aliases that v1.1
+  resolves (`NSDI` = `USENIX NSDI`, `CACM`, `IJCV`, `TPAMI`), which leaves **77 papers the catalog
+  cites with more than one venue**; every venue other than the chosen one is kept in
+  `Paper.venue_variants` (C13), 13 papers having two or more. For 10 of the 77 the other venue is
+  only arXiv; the other 67 name two real venues. In 18 of them the catalog contradicts itself about
+  the conference: ICLR vs ICML 8 times, ICML vs NeurIPS 2, ACL vs NAACL 2, ICLR vs NeurIPS 2, and
+  NAACL vs NeurIPS, ACL vs EMNLP, COLM vs ICML, COLM vs NeurIPS once each (all present in v1 too).
+  24 venue names still look like residue (C11).
 - **Assumptions:** 220 problems have none; 6 of them state assumptions only in unheaded
   numbered lists the parser does not read (O9).
 - **Provenance:** edges carry no provenance of their own; the problem page at the edge's source
@@ -198,12 +202,14 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 - **People:** names are as written; 52% are initials or surname only, and nothing is merged.
 - **Topic scope text:** 18 of the 166 scope terms name no problem (T8).
 
-**Fixed in v1.1** (2026-10-09): two venues for 87 papers (O4), the empty id `venue:` (C1),
+**Fixed in v1.1** (rebuilt 2026-10-09; the numbers here are from the conformance run of
+2026-10-12 on that build): two venues for 87 papers (O4), the empty id `venue:` (C1),
 `retrieved_at` missing on every node (S4), and assumptions missed in 184 problems (O9: 404 → 220
 problems without one; 2,499 → 3,263 assumptions). The edge arithmetic: 62,178 − 103 surplus
 `APPEARED_AT` edges + 6 papers that gained a venue through the new aliases (4,462 → 4,365) + 764
-`RESTS_ON` edges (2,499 → 3,263) = 62,845. Nodes: 28,960 − 28 Venue + 764 Assumption = 29,696. The failing checks were tracked at the top of
-[conformance.md](conformance.md) until then; the licence still waits on the lead (issue #6).
+`RESTS_ON` edges (2,499 → 3,263) = 62,845. Nodes: 28,960 − 28 Venue + 764 Assumption = 29,696.
+The failing checks were tracked at the top of [conformance.md](conformance.md) until then; the
+licence still waits on the lead (issue #6).
 
 ## Sources (checked 2026-10-07, 2026-10-09 and 2026-10-12)
 

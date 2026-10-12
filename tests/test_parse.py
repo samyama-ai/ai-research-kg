@@ -230,9 +230,12 @@ def test_inline_enumeration_rules():
     # "(1)" inside prose is a reference, not an enumeration; the item list below is what counts
     prose_ref = "**Assumptions.** See Eq. (1) for the setting.\n\n- *Smoothness.* Violated.\n- *Bounded noise.* Holds.\n"
     assert [a["name"] for a in parse_assumptions(prose_ref)] == ["Smoothness", "Bounded noise"]
-    # an enumeration on the heading line and a list below are both read
-    both = "**Assumptions:** (i) Linearity — violated. (ii) Stationarity — holds.\n- *Independence.* Violated.\n"
-    assert [a["name"] for a in parse_assumptions(both)] == ["Linearity", "Stationarity", "Independence"]
+    # a list below the heading is the content; an enumeration on the heading line is then an introduction
+    both = "**Assumptions:** (i) linearity and (ii) stationarity, in detail:\n- *Linearity.* Violated.\n- *Stationarity.* Holds.\n"
+    assert [a["name"] for a in parse_assumptions(both)] == ["Linearity", "Stationarity"]
+    # a table under the heading, even indented
+    table = "**Assumptions and their status.**\n\n  | Assumption | Status |\n  |---|---|\n  | i.i.d. data | holds |\n  | Bounded noise | **Violated** |\n"
+    assert [(a["name"], a["violated"]) for a in parse_assumptions(table)] == [("i.i.d. data", "holds"), ("Bounded noise", "violated")]
     # an indented list under the heading is a list
     indented = "**Assumptions.**\n  - *Linear features.* Violated.\n  - *Fixed data.* Holds.\n"
     assert [a["name"] for a in parse_assumptions(indented)] == ["Linear features", "Fixed data"]
@@ -245,3 +248,33 @@ def test_lazy_reexports_are_the_build_objects():
         assert getattr(parse, name) is getattr(build, name), name
     with pytest.raises(AttributeError):
         parse.no_such_name  # noqa: B018
+
+
+def test_bold_sentence_about_assumptions_is_not_a_heading():
+    from etl.parse import parse_assumptions
+    # a bold sentence is longer than any real heading (the cap is HEADING_MAX_WORDS = 10 words)
+    sentence = "**Assumptions in this section are often violated in practice, as the next three paragraphs show.**\n- not an assumption list\n"
+    assert parse_assumptions(sentence) == []
+    long_heading = "**Assumptions, with the ones known to be violated flagged:**\n- *Linear features.* Violated.\n"
+    assert [a["name"] for a in parse_assumptions(long_heading)] == ["Linear features"]
+
+
+def test_venue_provenance_raw_and_variants(graph):
+    # a Venue node's source_url is a page that really names that venue
+    venues = graph.nodes["Venue"]
+    for e in graph.edges:
+        if e[2] == "APPEARED_AT":
+            paper, venue = graph.nodes["Paper"][e[1]], venues[e[4]]
+            assert venue["source_url"].startswith("https://github.com/")
+    # no venue chosen -> no venue_raw either (residue such as "(" is not a venue)
+    assert all(p.get("venue_raw") is None for p in graph.nodes["Paper"].values() if not p.get("venue"))
+    # variants, when present, are a list and never repeat the chosen venue
+    for p in graph.nodes["Paper"].values():
+        if p.get("venue_variants"):
+            assert isinstance(p["venue_variants"], list) and p["venue"] not in p["venue_variants"]
+
+
+def test_lock_path_is_defined_in_one_place(tmp_path):
+    from etl.download_data import CATALOG_DIR, LOCK_PATH, lock_path
+    assert LOCK_PATH == lock_path(CATALOG_DIR) == CATALOG_DIR.with_name("ai_research.lock.json")
+    assert lock_path(tmp_path / "x" / "catalog") == tmp_path / "x" / "catalog.lock.json"

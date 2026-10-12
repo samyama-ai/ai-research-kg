@@ -183,15 +183,16 @@ def assumption_status(text: str) -> str:
     return "unstated"
 
 
-# a heading, not emphasis: bold that starts with "Assumption(s)" and ends with ":" or "." (inside
-# or right after the bold). It may sit mid-paragraph, as it does on many pages
 # Two shapes count as a heading: bold starting with "Assumption(s)" that ends in ":" or "."
-# (inside or right after the bold; may sit mid-paragraph), or such bold alone on its line
-# (optionally as a list item). Bold that merely mentions an assumption mid-sentence does not.
+# (inside or right after the bold; it may sit mid-paragraph, as on many pages), or such bold
+# alone on its line (optionally as a list item). A bold *sentence* about assumptions is not a
+# heading: headings are short (the longest in the catalog has 8 words, "Assumptions, with the
+# ones known to be violated flagged"), so a match with more than HEADING_MAX_WORDS is skipped.
 ASSUMPTION_HEAD_RE = re.compile(
     r"\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?(?:[:.]\*\*|\*\*[:.])"
     r"|^[ \t]*(?:[-*]\s+)?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?\*\*[ \t]*$",
     re.I | re.M)
+HEADING_MAX_WORDS = 10
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
 PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
 LIST_START_RE = re.compile(r"^\s*(?:(?:-|\*|\d+\.)\s+\S|\|\s*\S)")   # a list item (marker, space, text) or table row; "**bold**" is not a bullet
@@ -228,28 +229,29 @@ def parse_assumptions(formal: str) -> list[dict]:
     """The "Assumptions" part of Formal Setting, in the four forms the catalog uses:
     a list under the heading, a table under it, an inline (i)/(ii) list on the
     heading line, or prose items "Name: *status* — why."."""
-    m = ASSUMPTION_HEAD_RE.search(formal)
+    m = next((m for m in ASSUMPTION_HEAD_RE.finditer(formal)
+              if len(re.findall(r"[A-Za-z0-9$\\]+", m.group(0))) <= HEADING_MAX_WORDS), None)
     if not m:
         return []
     line_end = formal.find("\n", m.end())
     inline = formal[m.end(): line_end if line_end != -1 else None].strip()
     below = _first_block(formal[line_end:] if line_end != -1 else "")
     out: list[dict] = []
-    # an enumeration on the heading line itself, "(i) ... (ii) ...": either the line starts with a
-    # marker, or at least two markers follow a short introduction. A lone "(1)" in prose ("see
-    # Eq. (1)") is a reference, not an enumeration. A list below the heading is read as well.
-    markers = INLINE_ENUM_RE.findall(inline) if inline else []
-    if markers and (INLINE_ENUM_RE.match(inline) or len(markers) >= 2):
-        out += [_assumption(p.strip(), True) for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
-        inline = ""
     stripped = below.lstrip()
+    markers = INLINE_ENUM_RE.findall(inline) if inline else []
+    # A table or list under the heading is the content; anything on the heading line is then an
+    # introduction (no page in the catalog has both, so nothing is read twice).
     if stripped.startswith("|"):
         rows = [r.strip() for r in stripped.splitlines() if r.strip().startswith("|")][2:]
         out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in rows]
     elif LIST_START_RE.match(below):
-        # text on the heading line is then an introduction; plain list items keep the v1 naming
         out += [_assumption(i, False) for i in list_items("\n".join(l.lstrip() for l in below.splitlines()))]
-    elif inline:
+    # Otherwise an enumeration on the heading line, "(i) ... (ii) ...": either the line starts with
+    # a marker, or at least two markers follow a short introduction. A lone "(1)" in prose
+    # ("see Eq. (1)") is a reference, not an enumeration.
+    elif markers and (INLINE_ENUM_RE.match(inline) or len(markers) >= 2):
+        out += [_assumption(p.strip(), True) for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+    elif inline:   # prose items "Name: *status* — why."
         out += [_assumption(p.strip(), True) for p in PROSE_ITEM_RE.split(inline) if p.strip()]
     return [a for a in out if len(a["text"]) > 3]
 
