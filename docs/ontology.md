@@ -138,7 +138,8 @@ with `rdfs:seeAlso`, not declared a sub-property of that object property.
 
 - **O4:** one venue per paper. A named venue beats `arXiv`, then the most cited, then the first
   seen; new aliases (`NSDI`, `FAST`, `CACM`, `IJCV`, `TPAMI`). The catalog's other venues for 77
-  papers (preprint servers included) are kept in `Paper.venue_variants` as a list; the ICLR/ICML contradictions should go to
+  papers (preprint servers included) are kept in `Paper.venue_variants` as a list; the ICLR/ICML
+  contradictions should go to
   `ai_research`.
 - **O9:** `parse_assumptions` reads all four forms the catalog uses: a list, a table, an inline
   `(i)`/`(ii)` list, and prose items `Name: *status* — why`.

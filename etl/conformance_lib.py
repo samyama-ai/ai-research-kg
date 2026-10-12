@@ -30,7 +30,7 @@ TRACKED_OPEN = {
           "(issue #6; CC BY 4.0 proposed as dbms_research). Blocks publishing a snapshot outside the team; "
           "building, and sharing the .sgsnap inside the team, go on",
     "O9": "assumption parsing: v1.1 reads the four forms the catalog uses (list, table, inline (i)/(ii), prose), "
-          "404 → 220 problems without an Assumption; the 6 left that state assumptions use unheaded numbered lists (PR #5)",
+          "405 → 220 problems without an Assumption (v1 as rebuilt on 2026-10-12; the first v1 build had 404); the 6 left that state assumptions use unheaded numbered lists (PR #5)",
 }
 
 

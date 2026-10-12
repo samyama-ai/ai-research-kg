@@ -187,8 +187,8 @@ def test_venue_raw_matches_the_chosen_venue(graph):
 def test_bare_assumptions_heading_and_plain_list_names():
     bare = "**Assumptions**\n- *Linear features.* Violated.\n- Features are directions — violated by circular features (Engels 2024).\n"
     items = parse_assumptions(bare)
-    # the plain list item keeps the v1 naming: lead-in if italic/bold, else the first eight words
-    assert [a["name"] for a in items] == ["Linear features", "Features are directions — violated by circular features"]
+    # a plain list item is named by its lead-in if italic/bold, else by its first clause
+    assert [a["name"] for a in items] == ["Linear features", "Features are directions"]
     assert [a["violated"] for a in items] == ["violated", "violated"]
     emphasis = "The **assumption** here is strong.\n- not an assumption list\n"
     assert parse_assumptions(emphasis) == []
@@ -274,7 +274,7 @@ def test_lock_path_is_defined_in_one_place(tmp_path):
 def test_enumeration_rules_reject_equation_references_and_keep_sub_bullets():
     # "Eq. (1) and (2)" is a pair of references, not an enumeration: the line stays one prose statement
     refs = "**Assumptions.** The bound follows from Eq. (1) and (2) under smoothness.\n"
-    assert [a["name"] for a in parse_assumptions(refs)] == ["The bound follows from Eq. (1) and (2)"]
+    assert [a["name"] for a in parse_assumptions(refs)] == ["The bound follows from Eq. (1) and (2) under smoothness"]
     # a sub-bullet is a continuation of its item, not an assumption of its own
     nested = "**Assumptions.**\n- *Linear features.* Violated.\n  - detail: circular features exist\n- *Fixed data.* Holds.\n"
     items = parse_assumptions(nested)

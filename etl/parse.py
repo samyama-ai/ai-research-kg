@@ -172,16 +172,25 @@ def classify_gap(head: str) -> str:
 # "false-positive rate", "false alarms" and "false discovery" are not.
 _NEG = r"(?<!\bnot )(?<!\bnever )(?<!\brarely )(?<!\bseldom )(?<!longer )"
 _NOT_A_VERDICT = r"(?![\s-]+(?:positives?|alarms?|discover\w*|negatives?)\b)"
+# "false" as a verdict, in the forms the catalog writes it: after a dash or colon, at a sentence
+# start, after a verb or a hedge ("is false", "known false", "mostly false", "and false"), or
+# qualified ("false for rare words", "false in general", "false at scale").
+_FALSE_VERDICT = (
+    r"(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
+    + r"|(?:^|[.;]\s+)false\b" + _NOT_A_VERDICT
+    + r"|,\s*false\b" + _NOT_A_VERDICT
+    + r"|\b(?:is|are|was|were|be|become|proves?|proven|turns? out|and|then|known|often|mostly|usually|generally|always|almost|"
+    r"clearly|simply|plainly|vacuously|approximately|empirically|demonstrably|likely|probably|largely|strictly|weakly|badly|"
+    r"numerically|nominally|surely|partially|partly|half|frequently|typically|routinely|rarely)\s+false\b" + _NOT_A_VERDICT
+    + r"|\bfalse\s+(?:for|in|at|under|when|beyond|here|on|once|above|below|across|per|after|outside|without)\b"
+)
 VIOLATED_RE = re.compile(
     _NEG + r"\bviolated\b|" + _NEG + r"\bfails?\b|\bdoes not hold\b|\bno longer holds\b|\brarely holds\b|\bnever holds\b|"
-    + _NEG + r"\bbroken\b"
-    + r"|(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
-    + r"|(?:^|[.;]\s+)false\b" + _NOT_A_VERDICT
-    + r"|\bfalse in practice", re.I)
+    + _NEG + r"\bbroken\b|" + _FALSE_VERDICT, re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|\bapproximately\b|\bweakly\b|\bsometimes\b|\bmostly\b", re.I)
 HOLDS_RE = re.compile(_NEG + r"\bholds\b|\bnot violated\b|\bnever violated\b|\breasonable\b|\bsafe\b", re.I)
 # a mixed verdict: "true for X …, false/violated/… for Y" in one sentence (the contrast word must follow)
-MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b[^.]*\b(?:but|false|violated|fails?|except|unless|otherwise|not)\b", re.I)
+MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b[^.]*\b(?:but|false|violated|fails?|except|unless|otherwise)\b", re.I)
 
 
 def assumption_status(text: str) -> str:
@@ -204,8 +213,13 @@ ASSUMPTION_HEAD_RE = re.compile(
     r"|^[ \t]*(?:[-*]\s+)?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?\*\*[ \t]*$",
     re.I | re.M)
 HEADING_MAX_WORDS = 10
+
+# An enumeration on the heading line: "(i) … (ii) …", "(1) … (2) …", "(a) … (b) …".
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
-EQUATION_REF_RE = re.compile(r"\b(?:eqs?\.?|equations?|see|cf\.?)\s*$", re.I)   # "Eq. (1)", "see (2)": references, not items
+# Text right before a marker that makes it a reference, not an item: "Eq. (1)", "see (2)".
+EQUATION_REF_RE = re.compile(r"\b(?:eqs?\.?|equations?|see|cf\.?)\s*$", re.I)
+# The first clause of a plain list item, used as its name: up to a dash, a colon or a sentence end.
+NAME_CLAUSE_RE = re.compile(r"\s[—–]\s|:\s|(?<=[^.\s])\.\s+(?=[A-Z*])")
 
 
 def _inline_enumeration(inline: str) -> list[str]:
@@ -222,6 +236,17 @@ def _inline_enumeration(inline: str) -> list[str]:
     if len(items) < len(markers) or any(len(strip_md(item).split()) < 3 for item in items):
         return []
     return items
+
+
+def _list_after_intro(block: str) -> int | None:
+    """Offset of the list in `block`: 0 when it starts with a list item, further in when at most
+    two introductory lines precede the first item, None when there is no list."""
+    offset = 0
+    for i, line in enumerate(block.splitlines(keepends=True)):
+        if LIST_START_RE.match(line) and not line.lstrip().startswith("|"):
+            return offset if i <= 2 else None
+        offset += len(line)
+    return None
 
 
 def _dedent_list(block: str) -> str:
@@ -242,15 +267,26 @@ PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
 LIST_START_RE = re.compile(r"^\s*(?:(?:-|\*|\d+\.)\s+\S|\|\s*\S)")   # a list item (marker, space, text) or table row; "**bold**" is not a bullet
 
 
+def _clause_name(text: str) -> str:
+    """The first clause of an item written without a lead-in ("$C$ is corpus-stable — violated: …"
+    names itself "$C$ is corpus-stable"). The clause must be 2–20 words and contain letters;
+    otherwise the first eight words stand in."""
+    clause = NAME_CLAUSE_RE.split(text, 1)[0].strip(" .,;:")
+    words = clause.split()
+    if 2 <= len(words) <= 20 and re.search(r"[A-Za-z]{2}", clause):
+        return clause
+    return " ".join(text.split()[:8])
+
+
 def _assumption(item: str, split_name: bool = False) -> dict:
-    """One assumption. The name is the italic or bold lead-in; with `split_name` (table rows and
-    prose items, which are written "Name: status — why") the text before the first colon or dash;
-    otherwise (plain list items, as in v1) the first eight words."""
+    """One assumption. The name is the italic or bold lead-in when there is one; with `split_name`
+    (table rows and prose items, written "Name: status — why") the text before the first colon or
+    dash; otherwise the first clause of the item (see `_clause_name`)."""
     nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
         re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item) or \
         (split_name and re.match(r"([^:—]{2,100}?)\s*(?::|—|–| - )\s*(.*)", item))
-    name = strip_md(nm.group(1)) if nm else " ".join(strip_md(item).split()[:8])
     text = strip_md(item)
+    name = strip_md(nm.group(1)) if nm else _clause_name(text)
     return {"name": name[:160], "text": text[:1200], "violated": assumption_status(text)}
 
 
@@ -285,8 +321,8 @@ def parse_assumptions(formal: str) -> list[dict]:
     # introduction (no page in the catalog has both, so nothing is read twice).
     if below.lstrip().startswith("|"):
         out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in _table_rows(below)]
-    elif LIST_START_RE.match(below):
-        out += [_assumption(i, False) for i in list_items(_dedent_list(below))]
+    elif (list_start := _list_after_intro(below)) is not None:
+        out += [_assumption(i, False) for i in list_items(_dedent_list(below[list_start:]))]
     elif inline and (items := _inline_enumeration(inline)):   # "(i) … (ii) …" on the heading line
         out += [_assumption(item, True) for item in items]
     elif inline:   # prose items "Name: *status* — why."

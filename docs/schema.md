@@ -3,7 +3,9 @@
 The graph as `etl/build.py` builds it and `etl/loader.py` loads it: 11 node labels, 11 edge
 types, 29,707 nodes and 62,842 edges from the `ai_research` catalog at commit `a02e87b3`
 (v1.1, 2026-10-09; counts re-measured 2026-10-12; `tests/test_invariants.py` pins them). v1
-(2026-10-07) had 28,960 nodes and 62,178 edges; §7 says what changed.
+as first built (2026-10-07) had 28,960 nodes and 62,178 edges; v1 as rebuilt on 2026-10-12 after
+review has 28,974 nodes and the same 62,178 edges (the review fixes added nodes, not edges). §7
+says what v1.1 changed.
 The Phase 1 design this grew out of is kept in [schema-v0.1-plan.md](schema-v0.1-plan.md);
 §7 lists what was planned and not built. The standards, code lists and ontology file are in
 [standards.md](standards.md).
@@ -134,9 +136,9 @@ One node per label and one edge per type; the real problem has 12 `CITES`, 4 `RE
 
 Every node in the path above also carries `retrieved_at: "2026-10-07"` and `source_date: "2026-09-10"` (§4); they are left out of the listing for space.
 
-## 7. Planned in v0.1, not built in v1
+## 7. Planned in v0.1, not built in v1 or v1.1
 
-| v0.1 plan ([schema-v0.1-plan.md](schema-v0.1-plan.md)) | v1 | Why |
+| v0.1 plan ([schema-v0.1-plan.md](schema-v0.1-plan.md)) | Built (v1 and v1.1) | Why |
 |---|---|---|
 | `Method` node, `STATE_OF_ART`, `MENTIONS`, `INTRODUCED_IN` | not built | the bold text in "State of the Art" is evidence labels ("Established", "Claimed but unablated"), not method names; needs an LLM or an outside source |
 | `AssumptionClass` + `INSTANCE_OF` | not built | needs curation; Q34 is answered approximately by grouping `Assumption.name` (query AR27) |
