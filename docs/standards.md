@@ -16,16 +16,16 @@ Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
 |---|---|---|---|---|
 | 1 | ai_research `TAXONOMY.md` | Taxonomy | ✅ **Use** (primary) | `Topic` nodes |
 | 2 | arXiv identifier | Identifier standard | ✅ **Use** | `Paper.id` |
-| 3 | arXiv category taxonomy | Coding system | ✅ **Use** | `Paper.arxiv_categories`, Topic crosswalk |
+| 3 | arXiv category taxonomy | Coding system | ✅ **Use** (planned; not in v1) | `Paper.arxiv_categories`, Topic crosswalk |
 | 4 | DOI | Identifier standard | ✅ **Use** where present | `Paper.doi` |
-| 5 | ORCID iD | Identifier standard | ✅ **Use** where DBLP gives it | `Person.orcid` |
-| 6 | **DBLP** | Identifier + bibliography | ✅ **Use** (as DBMS) | `Person.dblp_pid`, `dblp_url`, affiliation; reference checks |
-| 7 | Crossref + DataCite | DOI metadata services | ✅ **Use** (as DBMS) | reference verification |
+| 5 | ORCID iD | Identifier standard | ✅ **Use** where DBLP gives it (planned; not in v1) | `Person.orcid` |
+| 6 | **DBLP** | Identifier + bibliography | ✅ **Use** (as DBMS; planned, not in v1) | `Person.dblp_pid`, `dblp_url`, affiliation; reference checks |
+| 7 | Crossref + DataCite | DOI metadata services | ✅ **Use** (as DBMS; planned, not in v1) | reference verification |
 | 8 | ISO 8601 | Standard | ✅ **Follow** | all dates |
 | 9 | PROV-O | Ontology (pattern) | ✅ **Follow** | provenance fields |
 | 10 | SKOS | Ontology (pattern) | ✅ **Follow** | Topic hierarchy and crosswalks |
-| 11 | OpenAlex IDs + Topics | Identifier + taxonomy | ⚠️ **Optional** (DBMS didn't use it) | fallback for people DBLP misses; Topic crosswalk |
-| 12 | ROR ID | Identifier standard | ⚠️ **Optional** (DBMS didn't use it) | `Institution.ror_id` |
+| 11 | OpenAlex IDs + Topics | Identifier + taxonomy | ⚠️ **Optional** (DBMS didn't use it; not in v1) | fallback for people DBLP misses; Topic crosswalk |
+| 12 | ROR ID | Identifier standard | ⚠️ **Optional** (DBMS didn't use it; not in v1) | `Institution.ror_id` |
 | 13 | ACM CCS 2012 | Taxonomy | ❌ **Not used** (as DBMS; licence is non-commercial) | — |
 | 14 | Semantic Scholar | Identifier + graph | ❌ **Not used** (as DBMS) | — |
 | 15 | Papers with Code | Taxonomy (tasks/methods) | ❌ **Not used** | — |
@@ -57,7 +57,7 @@ Draft v0.2, 2026-10-07. Licences and versions were checked on that date.
 | Name | Publisher | Licence | Use |
 |---|---|---|---|
 | **ISO 8601** | ISO | standard (free to follow) | All dates as `YYYY-MM` or `YYYY-MM-DD`. The catalog already uses `YYYY-MM`. |
-| **PROV-O** | W3C | W3C document licence | Followed as a naming pattern only, as in the Valuation KG: `source`, `source_url` (the primary source's locator), `method` (the activity) on every node, and `retrieved_at` planned (not in v1). No PROV-O triples are produced and nothing is validated against the ontology. |
+| **PROV-O** | W3C | W3C document licence | Followed as a naming pattern only, as in the Valuation KG: `source`, `provenance` and `method` on every node, `source_url` (the primary source's locator) on every node read from one page (not on the shared Institution, Obstruction and DataSource nodes), and `retrieved_at` planned (not in v1). No PROV-O triples are produced and nothing is validated against the ontology. |
 | **SKOS** | W3C | W3C document licence | Vocabulary for crosswalk edges: `exactMatch` / `closeMatch` / `broadMatch` (see Section 3). |
 
 ### 2.3 Optional (not in DBMS; add only if needed)
@@ -92,7 +92,7 @@ These are for the Responsible AI / Explainable AI work that gets merged in later
 
 ## 3. Crosswalks (mappings between systems)
 
-The guide says crosswalks are often the most valuable part. They become `MAPS_TO` edges carrying a SKOS match type.
+The guide says crosswalks are often the most valuable part. They would become `MAPS_TO` edges carrying a SKOS match type. **None of these edges, labels (`ArxivCategory`, `ExternalTopic`) or properties exists in v1**; they need the lookups above.
 
 | From | To | How it's made | Edge |
 |---|---|---|---|
@@ -108,16 +108,17 @@ That example is a **guess to check**. Confirm it by counting the categories of t
 
 ---
 
-## 4. Minimum set for v1
+## 4. What v1 uses, and the minimum set planned
 
-Answering the `scope.md` questions needs only:
-1. **ai_research TAXONOMY** (topics)
-2. **arXiv ID + arXiv API** (papers, full author names, categories)
-3. **DBLP** (full author names, `dblp_pid`, affiliations), as DBMS did
-4. **Crossref + DataCite** (verify DOIs), as DBMS did
-5. **ISO 8601 + PROV-O** (dates, provenance)
+**Built in v1** (no external lookups): the **ai_research TAXONOMY** (topics), **arXiv identifiers** as
+paper ids where the catalog gives one (DOI or a title hash otherwise), **ISO 8601** dates and the
+**PROV-O** field names (`provenance`, `source`, `source_url`, `method`). Nothing else in this file is
+in the v1 graph: `Person.dblp_pid`, `Paper.arxiv_categories`, `Institution.ror_id` and the
+`MAPS_TO` crosswalks are planned properties and edges, not built.
 
-Everything else is optional, on hold, or later.
+**Planned minimum set**, once lookups are allowed: arXiv API (full author names, categories), DBLP
+(`dblp_pid`, affiliations) as DBMS did, Crossref + DataCite (verify DOIs) as DBMS did. Everything
+else is optional, on hold, or later.
 
 ---
 
@@ -140,4 +141,4 @@ Everything else is optional, on hold, or later.
 - Semantic Scholar licence: api.semanticscholar.org/license
 - DBMS approach: github.com/samyama-ai/dbms_research (README "License", CLAUDE.md, tools/dblp_*.py, tools/verify_refs.py)
 - DBLP licence: dblp.org (CC0)
-- Papers with Code shutdown: paperswithcode.com (redirects to huggingface.co/papers); Hugging Face forum thread "Missing dataset after PapersWithCode migration" (discuss.huggingface.co/t/167174); secondary reports hyper.ai/en/news/42900. No primary Meta statement was found; the date is from the Hugging Face announcement
+- Papers with Code shutdown: paperswithcode.com (redirects to huggingface.co/papers); Hugging Face forum thread "Missing dataset after PapersWithCode migration" (discuss.huggingface.co/t/167174); secondary report hyper.ai/en/news/42900. No primary Meta statement was found; the date is from the Hugging Face announcement.

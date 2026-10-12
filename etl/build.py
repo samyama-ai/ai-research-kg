@@ -3,9 +3,18 @@
     python -m etl.build          # parse the pinned catalog, write data/graph.json
 
 The page-level parsing lives in etl/parse.py; this module mints ids, deduplicates
-papers across problems (arXiv id first, then normalised title, then DOI, then a
-title hash) and computes RELATED_TO from shared cited papers, which says so on
-the edge (`method`, `shared_papers`, `score`).
+papers across problems and computes RELATED_TO from shared cited papers, which
+says so on the edge (`method`, `shared_papers`, `score`).
+
+Paper identity (see `paper_id`): the arXiv id when any citation of the paper
+gives one (looked up by normalised title across all pages), else the DOI when
+any citation gives one, else a hash of the normalised title (or, for a blank
+title, of the authors, year and venue text).
+
+v1 adds one APPEARED_AT edge per citation venue, so a paper cited with two
+different venues has two edges, and `Paper.venue` is the venue of the first
+citation read; 87 papers are affected (conformance check O4). v1.1 (PR #5)
+chooses one venue per paper and keeps the others in `venue_variants`.
 """
 from __future__ import annotations
 
@@ -16,7 +25,7 @@ from pathlib import Path
 
 from etl.helpers import short_hash, slug
 from etl.parse import (
-    INSTITUTIONS,
+    INSTITUTION_BY_ID,
     OBSTRUCTIONS,
     classify_obstructions,
     first_paragraphs,
@@ -47,7 +56,11 @@ class Graph:
     edges: list[tuple] = field(default_factory=list)
     _edge_keys: set = field(default_factory=set)
 
+    RESERVED = frozenset({"id"})
+
     def add_node(self, label: str, node_id: str, **props) -> str:
+        if self.RESERVED & props.keys():
+            raise ValueError(f"{label} {node_id}: property names {sorted(self.RESERVED & props.keys())} are reserved")
         existing = self.nodes[label].get(node_id)
         if existing is None:
             self.nodes[label][node_id] = {"id": node_id, **props}
@@ -77,31 +90,53 @@ class Graph:
 # --------------------------------------------------------------------------- #
 # Catalog walk
 # --------------------------------------------------------------------------- #
-def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dict]], dict[str, str]]:
-    """Read every page once; return texts, parsed references per page, and title -> arXiv id."""
+@dataclass
+class PaperKeys:
+    """Identifiers seen for a normalised title anywhere in the catalog, so a citation that
+    gives only the title still joins the paper another page cited with its arXiv id or DOI."""
+    title_to_arxiv: dict[str, str] = field(default_factory=dict)
+    title_to_doi: dict[str, str] = field(default_factory=dict)
+
+
+def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dict]], PaperKeys]:
+    """Read every page once; return texts, parsed references per page, and the identifier maps."""
     texts: dict[Path, str] = {}
     raw_refs: dict[str, list[dict]] = {}
     for path in problem_files(root):
         text = path.read_text(encoding="utf-8")
         texts[path] = text
         refs_block = split_sections(text).get("refs", "")
-        raw_refs[str(path)] = [r for r in (parse_reference(l) for l in refs_block.splitlines()) if r]
-    title_to_arxiv: dict[str, str] = {}
+        raw_refs[str(path)] = [r for r in (parse_reference(line) for line in refs_block.splitlines()) if r]
+    keys = PaperKeys()
     for refs in raw_refs.values():
         for r in refs:
+            title = title_key(r)
             if r["arxiv_id"]:
-                title_to_arxiv.setdefault(norm_title(r["title"]), r["arxiv_id"])
-    return texts, raw_refs, title_to_arxiv
+                keys.title_to_arxiv.setdefault(title, r["arxiv_id"])
+            if r["doi"]:
+                keys.title_to_doi.setdefault(title, r["doi"].lower())
+    return texts, raw_refs, keys
 
 
-def paper_id(r: dict, title_to_arxiv: dict[str, str]) -> str:
-    """arXiv id first (also via a title seen elsewhere with one), then DOI, then a title hash."""
-    ax = r["arxiv_id"] or title_to_arxiv.get(norm_title(r["title"]))
+def title_key(r: dict) -> str:
+    """The normalised title, or, when it is blank or too short to mean anything, the authors,
+    year and venue text, so that different untitled references do not merge into one paper."""
+    title = norm_title(r["title"])
+    if len(title) >= 3:
+        return title
+    return norm_title(f"{r['authors_raw']} {r['year'] or ''} {r['venue_raw'] or ''}") or "untitled"
+
+
+def paper_id(r: dict, keys: PaperKeys) -> str:
+    """arXiv id (own or seen for this title elsewhere), else DOI (likewise), else a title hash."""
+    title = title_key(r)
+    ax = r["arxiv_id"] or keys.title_to_arxiv.get(title)
     if ax:
         return f"paper:arxiv:{ax}"
-    if r["doi"]:
-        return f"paper:doi:{r['doi'].lower()}"
-    return f"paper:t:{short_hash(norm_title(r['title']))}"
+    doi = (r["doi"] or keys.title_to_doi.get(title) or "").lower()
+    if doi:
+        return f"paper:doi:{doi}"
+    return f"paper:t:{short_hash(title)}"
 
 
 def add_related_to(g: Graph, problem_papers: dict[str, set[str]], top_k: int, min_shared: int) -> None:
@@ -144,14 +179,18 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
         g.add_node("Topic", tid, name=t["name"], slug=t["slug"], number=t["number"],
                    scope=t["scope"], source_url=f"{base_url}/TAXONOMY.md", method="parsed", **common)
 
-    texts, raw_refs, title_to_arxiv = _collect_references(root)
+    texts, raw_refs, keys = _collect_references(root)
     problem_papers: dict[str, set[str]] = {}
+    problem_file: dict[str, Path] = {}
 
     for path, text in texts.items():
         fm = parse_frontmatter(text)
         sec = split_sections(text)
         topic_slug = fm.get("topic") or path.parent.name
         pid = f"problem:{fm.get('id') or f'{topic_slug}/{path.stem}'}"
+        if pid in problem_file:   # two pages with one id would silently merge into one node
+            raise ValueError(f"duplicate problem id {pid}: {problem_file[pid]} and {path}")
+        problem_file[pid] = path
         src_url = f"{base_url}/{path.relative_to(root).as_posix()}"
         p_common = {**common, "source_url": src_url}
 
@@ -170,7 +209,7 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
         # references -> Paper, Person, Venue
         papers_here = set()
         for pos, r in enumerate(raw_refs[str(path)], start=1):
-            ppid = paper_id(r, title_to_arxiv)
+            ppid = paper_id(r, keys)
             papers_here.add(ppid)
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
                        doi=r["doi"], venue=r["venue"], venue_raw=r["venue_raw"],
@@ -223,7 +262,10 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
         # labs active on the problem
         for d in parse_current_research(sec.get("current", "")):
             for lab in d["labs"]:
-                iid, name, kind, _ = next(x for x in INSTITUTIONS if x[0] == lab)
+                try:
+                    iid, name, kind, _ = INSTITUTION_BY_ID[lab]
+                except KeyError as error:
+                    raise ValueError(f"parse_current_research returned an unknown institution key {lab!r}") from error
                 g.add_node("Institution", f"institution:{iid}", name=name, kind=kind,
                            method="name-matched", **common)
                 g.add_edge("Institution", f"institution:{iid}", "ACTIVE_ON", "Problem", pid,

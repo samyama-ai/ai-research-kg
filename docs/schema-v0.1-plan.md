@@ -66,8 +66,8 @@ Properties in `{braces}` after a relationship name sit on the edge; properties a
 | 2 | **Topic** | One of the 35 research areas | `id`, `number`, `slug`, `name`, `scope` | `TAXONOMY.md` | Grouping, counting, topic-to-topic links | 35 |
 | 3 | **Paper** | A cited publication | `id`, `title`, `year`, `arxiv_id`, `doi`, `venue_raw`, `authors_raw` | Key References | Evidence; links problems through shared papers | 5,004 arXiv-ID / title grouped records measured |
 | 4 | **Person** | A paper author | `id`, `name`, `name_variants`, `arxiv_author_id`, `orcid`, `resolved` | author lists, resolved via arXiv | Who works on what; collaboration | 11,894 distinct raw author strings measured; identities unresolved |
-| 5 | **Venue** | Where a paper appeared | `id`, `name`, `kind` (conference / journal / workshop / preprint / report), `aliases` | Key References, after cleanup | Which venues carry the research | rough estimate: ~200 after cleanup; 699 distinct normalised raw venue strings measured |
-| 6 | **Institution** | A lab, company or university | `id`, `name`, `kind` (industry / academic / non-profit / government), `country` | §7 Current Research | Which labs are active on which problems | 45 canonical names / 2,057 rule-matched links measured (case-sensitive whole-word match on a fixed alias list); false matches still possible |
+| 5 | **Venue** | Where a paper appeared | `id`, `name`, `kind` (conference / journal / workshop / preprint / report), `aliases` | Key References, after cleanup | Which venues carry the research | rough estimate: ~200 after cleanup; 708 distinct normalised raw venue strings measured |
+| 6 | **Institution** | A lab, company or university | `id`, `name`, `kind` (industry / academic / non-profit / government), `country` | §7 Current Research | Which labs are active on which problems | 43 canonical names / 1,950 rule-matched links measured (case-sensitive whole-word match on a fixed alias list); false matches still possible |
 | 7 | **Method** | A named technique, algorithm or system | `id`, `name`, `aliases`, `kind` (algorithm / architecture / training method / evaluation / tool) | §3 State of the Art (+ mentions in other sections) | What has been tried; methods shared across topics | rough estimate: 2,000–3,000 |
 | 8 | **Assumption** | A source-specific assumption | `id`, `text`, `name`, `violated` (true / false / partly), `violation_note` | §2 "Assumptions, and which are violated" | Preserve each problem's wording and violation evidence | 2,492 list items measured |
 | 9 | **AssumptionClass** | A canonical category shared by similar assumptions | `id`, `name`, `description` | Curated mapping from Assumption text | Answer Q34 without merging source-specific assumptions | estimate pending curation |
@@ -87,9 +87,9 @@ Properties in `{braces}` after a relationship name sit on the edge; properties a
 | 1 | **IN_TOPIC** | Problem → Topic | — | Each problem belongs to exactly one topic | 1,000 |
 | 2 | **CITES** | Problem → Paper | `role` (fixed list, 5.2), `role_raw`, `position` | The problem uses this paper as evidence | 12,878 measured (261 of them carry no role tag in the source) |
 | 3 | **AUTHORED_BY** | Paper → Person | `position` (1 = first author) | Authorship | 19,166 author entries measured; identities unresolved |
-| 4 | **APPEARED_AT** | Paper → Venue | `year` | Publication venue | 4,313 grouped paper records with a parsed venue string |
+| 4 | **APPEARED_AT** | Paper → Venue | `year` | Publication venue | 4,436 grouped paper records with a parsed venue string |
 | 5 | **AFFILIATED_WITH** | Person → Institution | `source` | Researcher's lab (only where a lookup confirms it) | partial, optional in v1 |
-| 6 | **ACTIVE_ON** | Institution → Problem | `direction` (the §7 bullet text) | A lab named in §7 as working on the problem (the page names it; activity isn't independently verified) | 2,057 rule-matched links (measured) |
+| 6 | **ACTIVE_ON** | Institution → Problem | `direction` (the §7 bullet text) | A lab named in §7 as working on the problem (the page names it; activity isn't independently verified) | 1,950 rule-matched links (measured) |
 | 7 | **STATE_OF_ART** | Problem → Method | `evidence` (established / claimed / benchmark_only), `kind` (theory / empirical / systems) | Best-known method for this problem | rough estimate: ~3,000 |
 | 8 | **MENTIONS** | Problem → Method | `section` (§ number) | The method appears anywhere on the page (weaker than STATE_OF_ART) | rough estimate: ~5,000+ |
 | 9 | **RESTS_ON** | Problem → Assumption | `position` | The problem depends on this assumption | 2,492 list items measured |
@@ -301,16 +301,16 @@ Problem "Scalable Verification of Safety Properties From Internals"
 | | DBMS Research KG | AI Research KG (estimate) |
 |---|---|---|
 | Problems | 1,053 | 1,000 |
-| Nodes | 18,751 | ~28,000–29,000 = 25,979 measured + 2,100–3,300 estimated |
-| Edges | 38,539 | ~64,000–65,000 = 46,716 measured + 17,500–18,500 estimated |
+| Nodes | 18,751 | ~28,000–29,000 = 25,986 measured + 2,100–3,300 estimated |
+| Edges | 38,539 | ~64,000–65,000 = 46,732 measured + 17,500–18,500 estimated |
 | Vector indexes | 2 (Problem, Topic) | 2 (Problem, Topic) |
 
 How the totals are built (measured figures are `nodes_measured` / `edges_measured` from `etl/count_kg.py`, run 2026-10-12 on commit `a02e87b3`):
 
 | | Measured by `count_kg.py` | Estimated (not produced by the counter) |
 |---|---|---|
-| Nodes | Problem 1,000 · Topic 35 · Paper 5,004 · Person 11,894 (raw author strings) · Venue 699 (raw strings) · Institution 45 · Assumption 2,492 · OpenQuestion 3,810 · FutureDirection 1,000 = **25,979** | Method 2,000–3,000 · AssumptionClass 100–300 · Obstruction ~10 · DataSource 1–3 = **2,100–3,300** |
-| Edges | IN_TOPIC 1,000 · CITES 12,878 · AUTHORED_BY 19,166 · APPEARED_AT 4,313 · ACTIVE_ON 2,057 · RESTS_ON 2,492 · HAS_GAP 3,810 · HAS_NEXT_EXPERIMENT 1,000 = **46,716** | STATE_OF_ART ~3,000 · MENTIONS ~5,000 · BLOCKED_BY 1,000–2,000 (from 940 §6 items) · RELATED_TO ~5,000 (top 5 per problem) · INSTANCE_OF ~2,500 · FROM_SOURCE 1,000 · AFFILIATED_WITH and INTRODUCED_IN optional = **17,500–18,500** |
+| Nodes | Problem 1,000 · Topic 35 · Paper 5,004 · Person 11,894 (raw author strings) · Venue 708 (raw strings) · Institution 43 · Assumption 2,492 · OpenQuestion 3,810 · FutureDirection 1,000 = **25,986** | Method 2,000–3,000 · AssumptionClass 100–300 · Obstruction ~10 · DataSource 1–3 = **2,100–3,300** |
+| Edges | IN_TOPIC 1,000 · CITES 12,878 · AUTHORED_BY 19,166 · APPEARED_AT 4,436 · ACTIVE_ON 1,950 · RESTS_ON 2,492 · HAS_GAP 3,810 · HAS_NEXT_EXPERIMENT 1,000 = **46,732** | STATE_OF_ART ~3,000 · MENTIONS ~5,000 · BLOCKED_BY 1,000–2,000 (from 940 §6 items) · RELATED_TO ~5,000 (top 5 per problem) · INSTANCE_OF ~2,500 · FROM_SOURCE 1,000 · AFFILIATED_WITH and INTRODUCED_IN optional = **17,500–18,500** |
 
 Venue and person resolution will lower the node total by a few hundred (699 raw venue strings → ~200 venues; author variants merge) without changing the edge counts. The estimated column is a planning range, not a measurement.
 

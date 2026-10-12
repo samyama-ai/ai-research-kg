@@ -1,11 +1,11 @@
 # Dataset Card — AI Research KG
 
 ## Summary
-A knowledge graph of 1,000 open problems in AI and machine learning: 28,960 nodes and 62,178 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
+A knowledge graph of 1,000 open problems in AI and machine learning: 28,974 nodes and 62,178 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
 
 | | |
 |---|---|
-| Version | **v1**, built 2026-10-07 (counts re-checked 2026-10-12) |
+| Version | **v1**, first built 2026-10-07 (28,960 nodes); rebuilt 2026-10-12 after review with the counts above |
 | Built from | `ai_research` commit `a02e87b368016fd9568ba5ae8561ea601a8dee41` (catalog dated 2026-09-10) with the parser in this repository (`etl/build.py`) |
 | Engine | Samyama Graph 1.11.0 (`ghcr.io/samyama-ai/samyama-graph@sha256:fc9a7405…`, see README) |
 | Code licence | Apache 2.0 (`LICENSE`) |
@@ -27,7 +27,7 @@ That is the only source: no external APIs, no LLM extraction, no synthetic data.
 |---|---|---|
 | Problem, Topic, Paper, Person, Venue, Assumption, OpenQuestion, FutureDirection | parsed from fixed sections of each Markdown file | `parsed` |
 | Obstruction | "Why It Is Hard" mapped by keywords to the 5 obstruction types named in the catalog's `TEMPLATE.md`, plus `other` | `keyword-classified` |
-| Institution | "Current Research" matched against a fixed list of 51 labs and universities (`etl/rules.py: INSTITUTIONS`); 50 of them occur in the catalog | `name-matched` |
+| Institution | "Current Research" matched against a fixed list of 52 labs and universities (`etl/rules.py: INSTITUTIONS`); 51 of them occur in the catalog | `name-matched` |
 | RELATED_TO | computed: two problems that cite ≥2 of the same papers, top 5 per problem by Jaccard score | edge `method: shared_papers` |
 | CITES.role | ~670 free-text reference tags grouped into 7 roles; the original tag is kept in `role_raw` | — |
 
@@ -44,7 +44,7 @@ That is the only source: no external APIs, no LLM extraction, no synthetic data.
 ## Known limits
 - **People:** authors appear in three forms (surname / initials / full name) and are not merged, so a bare surname like "Zhang" stands for many people. Use `name_form = 'full'` for people questions.
 - **Methods:** not extracted in v1.
-- **Institutions:** only the 51 names on the list are found (50 occur); others are missed.
+- **Institutions:** only the 52 names on the list are found (51 occur); others are missed.
 - **Experiment budgets:** `compute_budget_gpu_hours` is parsed for 361 of 1,000 experiments, from text like "~200 A100-hours"; the rest are empty, never guessed.
 - **Provenance dates:** nodes carry no `retrieved_at` in v1 (added in v1.1).
 - **One source file** has sections 9 and 10 swapped; the parser finds sections by name, so it's handled.
