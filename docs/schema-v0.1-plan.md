@@ -198,6 +198,8 @@ Each §8 contains a **question**, a **scale**, **control arms** and **the decidi
 
 ## 6. Standards, Taxonomies and Identifiers
 
+> Superseded by [standards.md](standards.md) v0.3 (2026-10-09), which records what the graph holds and checks it. The table below is the v0.1 plan.
+
 | Kind | Standard / identifier | Used for |
 |---|---|---|
 | Taxonomy | ai_research `TAXONOMY.md` (35 topics, stable numbers) | Topic |

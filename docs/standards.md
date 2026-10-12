@@ -40,7 +40,7 @@ use have their own section, with no icon.
 | **ISO 8601** dates | ISO | dates | `first_added`, `last_reviewed`, `last_substantive_update` as `YYYY-MM` | ✅ | ✅ 3,000 values (C7) |
 | **Git commit SHA-1** | git | source version | `DataSource.version` = `a02e87b3…` (40 hex) | ✅ | ✅ equals the pinned commit (C8) |
 | **DBLP person id** (`pid`) | Schloss Dagstuhl (CC0) | researchers | `Person.dblp_pid` | 🔑 | — not loaded |
-| **ORCID iD** | ORCID | researchers | `Person.orcid`, only when DBLP gives it | 🔑 | — |
+| **ORCID iD** (16 characters in four groups, `0000-0002-1825-0097`; the last is a checksum and can be `X`) | ORCID | researchers | `Person.orcid`, only when DBLP gives it | 🔑 | — |
 | **DBLP stream key** (`conf/nips`, `journals/jmlr`) | Schloss Dagstuhl | venues | `Venue.dblp_key` | 🔑 | — not loaded |
 | **arXiv category** (`cs.LG`, `cs.CL`, `stat.ML`) | arXiv | subject areas | `Paper.arxiv_categories`; Topic crosswalk | 🔑 | — |
 | **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | — not loaded |
@@ -100,7 +100,7 @@ Conformance in detail, and the seven refinements: **[taxonomy.md](taxonomy.md)**
 
 | From | To | How | Edge |
 |---|---|---|---|
-| 35 topics | arXiv categories | count the categories of each topic's cited arXiv papers | `(:Topic)-[:MAPS_TO {match: closeMatch}]->(:ArxivCategory)` |
+| 35 topics | arXiv categories | count the categories of each topic's cited arXiv papers | `(:Topic)-[:MAPS_TO {match: closeMatch / broadMatch}]->(:ArxivCategory)`: `closeMatch` for the category most papers carry, `broadMatch` for a parent such as `cs.AI` |
 | 35 topics | OpenAlex topics *(optional)* | top 1–3 OpenAlex topics of each topic's papers | `MAPS_TO {match: broadMatch / closeMatch}` |
 | Authors | DBLP person | DBLP search by title or arXiv id (as DBMS `dblp_*.py`) | `Person.dblp_pid` |
 | Venue names | DBLP stream key | alias table, then DBLP | `Venue.dblp_key` |
@@ -210,5 +210,5 @@ the team's Gitea under `Samyama.ai`.
 - ISO 8601: iso.org/iso-8601-date-and-time-format.html · DOI (ISO 26324): doi.org
 - Responsible AI standards (later): nist.gov/itl/ai-risk-management-framework (AI RMF 1.0 and NIST AI 600-1), eur-lex.europa.eu Regulation (EU) 2024/1689, iso.org/standard/81230.html (ISO/IEC 42001:2023), oecd.org/en/topics/ai-principles.html
 - DBMS approach: github.com/samyama-ai/dbms_research (README licence, `tools/dblp_*.py`, `tools/verify_refs.py`); its KG: github.com/samyama-ai/samyama-graph `case_studies/dbms-research`
-- Not used: ACM CCS acm.org/publications/class-2012 · Semantic Scholar licence api.semanticscholar.org/license · Papers with Code shutdown (2025-07-24): coursera.org/articles/papers-with-code
+- Not used: ACM CCS acm.org/publications/class-2012 · Semantic Scholar licence api.semanticscholar.org/license · Papers with Code shutdown: paperswithcode.com (redirects to huggingface.co/papers), Hugging Face forum thread discuss.huggingface.co/t/167174, secondary report hyper.ai/en/news/42900 (no primary Meta statement found)
 - Reference layout: git.samyama.ai/Samyama.ai/enterprise-valuation-kg `docs/standards.md`
