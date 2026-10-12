@@ -30,10 +30,10 @@ ontology in `docs/schema.md` and `schema/template_kg.cypher`, and lists "an OWL 
 | `Problem` | One open AI research problem (one catalog page) | 1,000 | see also ORKG `Problem` | `problem:NN-topic/slug` |
 | `Topic` | One of the 35 topics of TAXONOMY.md | 35 | subclass of `skos:Concept` | `topic:NN-slug` |
 | `Paper` | A cited publication | 4,932 | subclass of `fabio:ScholarlyWork`; see also `schema:ScholarlyArticle` | `paper:arxiv:…` (new or old style) / `paper:doi:…` / `paper:t:<hash>` |
-| `Person` | An author, as written in the reference | 15,097 | subclass of `foaf:Agent` (19 are collectives such as "Llama Team"); see also `schema:Person` | `person:<slug>` |
-| `Venue` | Where a paper appeared | 550 | see also `schema:Periodical`, `schema:EventSeries` (one class covers both, so neither is a superclass) | `venue:<slug>` |
-| `Institution` | A lab named in Current Research | 50 | subclass of `foaf:Organization`; see also `schema:Organization` | `institution:<key>` |
-| `Assumption` | An assumption one problem rests on | 2,499 | (ours) | `<problem id>#assumption-N` |
+| `Person` | An author, as written in the reference | 15,102 | subclass of `foaf:Agent` (19 are collectives such as "Llama Team"); see also `schema:Person` | `person:<slug, letters of any script>` |
+| `Venue` | Where a paper appeared | 561 | see also `schema:Periodical`, `schema:EventSeries` (one class covers both, so neither is a superclass) | `venue:<slug>` |
+| `Institution` | A lab named in Current Research | 51 | subclass of `foaf:Organization`; see also `schema:Organization` | `institution:<key>` |
+| `Assumption` | An assumption one problem rests on | 2,496 | (ours) | `<problem id>#assumption-N` |
 | `OpenQuestion` | One gap in what is known, with its kind | 3,790 | (ours) | `<problem id>#gap-N` |
 | `Obstruction` | A type of reason a problem is hard | 6 | subclass of `skos:Concept` | `obstruction:<code>` |
 | `FutureDirection` | The concrete next experiment | 1,000 | (ours) | `<problem id>#next-experiment` |
@@ -53,13 +53,13 @@ ontology has assumptions, open questions or next experiments, so those three cla
 |---|---|---|---|---:|
 | `IN_TOPIC` | Problem → Topic | exactly 1 per problem; ≥ 1 per topic | `dcterms:subject` | 1,000 |
 | `CITES {role, role_raw, position}` | Problem → Paper | ≥ 1 per paper | `cito:cites`; `role` refines it (below) | 12,615 |
-| `AUTHORED_BY {position}` | Paper → Person | ≥ 1 per person | `dcterms:creator` | 28,753 |
-| `APPEARED_AT` | Paper → Venue | at most 1 per paper; ≥ 1 per venue | `dcterms:isPartOf` | 4,462 |
-| `RESTS_ON {position}` | Problem → Assumption | exactly 1 problem per assumption | (ours) | 2,499 |
+| `AUTHORED_BY {position}` | Paper → Person | ≥ 1 per person | `dcterms:creator` | 28,757 |
+| `APPEARED_AT` | Paper → Venue | at most 1 per paper; ≥ 1 per venue | `dcterms:isPartOf` | 4,468 |
+| `RESTS_ON {position}` | Problem → Assumption | exactly 1 problem per assumption | (ours) | 2,496 |
 | `HAS_GAP {position}` | Problem → OpenQuestion | exactly 1 problem per question | (ours) | 3,790 |
 | `BLOCKED_BY {detail, is_primary}` | Problem → Obstruction | ≥ 1 per problem; exactly 1 primary | (ours) | 1,448 |
 | `HAS_NEXT_EXPERIMENT` | Problem → FutureDirection | at most 1 per problem; exactly 1 per direction | (ours) | 1,000 |
-| `ACTIVE_ON {direction}` | Institution → Problem | ≥ 1 per institution | (ours) | 2,483 |
+| `ACTIVE_ON {direction}` | Institution → Problem | ≥ 1 per institution | (ours) | 2,476 |
 | `RELATED_TO {method, shared_papers, score}` | Problem → Problem | symmetric; stored once, smaller id first; **computed** | `dcterms:relation` | 3,128 |
 | `FROM_SOURCE` | Problem → DataSource | exactly 1 per problem | `prov:wasDerivedFrom` | 1,000 |
 
@@ -72,10 +72,10 @@ CiTO (the Citation Typing Ontology, SPAR) names the reasons one work cites anoth
 |---|---|---:|
 | `sota` | `cito:citesAsAuthority` | 3,983 |
 | `foundational` | `cito:obtainsBackgroundFrom` | 2,952 |
-| `context` | `cito:citesForInformation` | 1,906 |
+| `context` | `cito:citesForInformation` | 1,911 |
 | `evidence` | `cito:citesAsEvidence` | 1,750 |
-| `survey` | `cito:citesAsRecommendedReading` | 889 |
-| `method` | `cito:usesMethodIn` | 829 |
+| `survey` | `cito:citesAsRecommendedReading` | 887 |
+| `method` | `cito:usesMethodIn` | 826 |
 | `caution` | `cito:critiques` | 306 |
 | `benchmark` *(proposed)* | `cito:usesDataFrom` | — |
 
@@ -120,12 +120,12 @@ with `rdfs:seeAlso`, not declared a sub-property of that object property.
 |---|---|---|
 | O1, O2 | Labels and edge types = classes and properties | ✅ 11 = 11, 11 = 11 |
 | O3 | Every edge goes from domain to range | ✅ 62,178 edges |
-| O4 | Cardinalities | ❌ **87 papers have 2 venues** (`APPEARED_AT` max 1). Every other cardinality holds |
+| O4 | Cardinalities | ❌ **88 papers have 2 venues** (`APPEARED_AT` max 1). Every other cardinality holds |
 | O5 | Required properties present | ✅ |
 | O6 | Exactly one primary obstruction per problem | ✅ |
 | O7 | `RELATED_TO` stored once per pair | ✅ |
 | O8 | No orphan nodes | ✅ |
-| O9 | Assumptions are extracted where the page states them | ℹ️ **404 problems have no `Assumption`; 189 of them do state assumptions** in a bold heading the parser misses (an inline `(i) … (ii) …` list, not bullets) |
+| O9 | Assumptions are extracted where the page states them | ℹ️ **405 problems have no `Assumption`; 190 of them do state assumptions** in a bold heading the parser misses (an inline `(i) … (ii) …` list, not bullets) |
 | O10 | Every problem has open questions | ℹ️ 8 problems have none |
 
 **What fixes the two real gaps:**

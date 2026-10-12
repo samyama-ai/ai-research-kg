@@ -35,7 +35,7 @@ from etl.parse import Graph, build_graph, parse_taxonomy, problem_files, split_s
 # Rules the graph breaks today, and where each fix is tracked. The test suite
 # (tests/test_standards.py) expects exactly these failures, so fixing one means removing it here.
 TRACKED_FAILURES = {
-    "O4": "87 papers have two APPEARED_AT venues → fixed in the v1.1 rebuild (PR #5): one venue per paper, "
+    "O4": "88 papers have two APPEARED_AT venues → fixed in the v1.1 rebuild (PR #5): one venue per paper, "
           "the catalog's other venue kept in Paper.venue_variants",
     "C1": "one Venue id is `venue:` (a venue named `(`) → fixed in v1.1 (PR #5)",
     "S4": "no node carries retrieved_at → fixed in v1.1 (PR #5): retrieved_at and source_date on every node",

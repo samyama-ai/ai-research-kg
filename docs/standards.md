@@ -45,9 +45,9 @@ use have their own section, with no icon.
 | **arXiv category** (`cs.LG`, `cs.CL`, `stat.ML`) | arXiv | subject areas | `Paper.arxiv_categories`; Topic crosswalk | 🔑 | — |
 | **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | — not loaded |
 
-**What v1 measures about the planned identifiers.** 52% of the 15,097 author names are initials
-or a surname only, so people can't be told apart without DBLP (C12). There are 550 venue names,
-40 of them parser residue, and 87 papers are given two venues by different citations (C11,
+**What v1 measures about the planned identifiers.** 52% of the 15,102 author names are initials
+or a surname only, so people can't be told apart without DBLP (C12). There are 561 venue names,
+47 of them parser residue, and 88 papers are given two venues by different citations (C11,
 C13), so venues need a canonical key such as the DBLP stream. ROR and OpenAlex are optional
 because the DBMS KG managed without them.
 
@@ -72,7 +72,7 @@ The catalog's identifiers, plus the KG's controlled vocabularies, each a closed 
 |---|---|---|---|
 | **Topic number** `NN` + slug | 35 (01–35, stable, never reused) | `Topic.number`, `topic:<NN-slug>` | ✅ (C3) |
 | **Problem id** `NN-topic/slug` | 1,000 | `problem:<id>`; children `#assumption-N`, `#gap-N`, `#next-experiment` | ✅ (C1, C2) |
-| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ❌ 1 of 28,960 fails: `venue:` (a venue named `(`) (C1); fix tracked: v1.1 (PR #5) |
+| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ❌ 1 of 28,974 fails: `venue:` (a venue named `(`) (C1); fix tracked: v1.1 (PR #5) |
 | `problem_status` | 5 used + `stale` (unused) | `Problem.status` | ✅ |
 | `catalog_provenance` | `synthesized` (all 1,000), `verified` | `Problem.catalog_provenance` | ✅ |
 | `cites_role` | 7 (+ `benchmark` proposed), each mapped to CiTO | `CITES.role` (raw tag in `role_raw`) | ✅ |
@@ -111,7 +111,7 @@ Conformance in detail, and the seven refinements: **[taxonomy.md](taxonomy.md)**
 11 classes, 11 relationships with domain, range and cardinality, id patterns, code lists,
 required properties and the two edge properties rules use),
 explained in **[ontology.md](ontology.md)**. The conformance tool checks the graph against the
-file. Result: all classes, relationships, domains and ranges match. Cardinality fails for 87
+file. Result: all classes, relationships, domains and ranges match. Cardinality fails for 88
 papers with two venues (O4).
 
 | Ontology | Publisher | How we use it | Status |
@@ -133,7 +133,7 @@ papers with two venues (O4).
 |---|---|---|---|
 | **Naming conventions** (as the DBMS and Valuation KGs) | Samyama KG guide | labels PascalCase singular, edges UPPER_SNAKE, stable deterministic `id` | ✅ (S1, C2) |
 | **PROV-O provenance** (docs/schema.md §4) | W3C | `source`, `provenance`, `method` on every node; `source_url` on page-level nodes | ✅ (S2, S3) |
-| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ❌ **absent on all 28,960 nodes** (S4); fix tracked: v1.1 (PR #5) |
+| | | `retrieved_at` (`prov:generatedAtTime`) on every node | ❌ **absent on all 28,974 nodes** (S4); fix tracked: v1.1 (PR #5) |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
 | **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1 compares the running engine when the tool is given `--url`, last done 2026-10-09: 28,960 nodes, 62,178 edges) |
@@ -168,10 +168,10 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 | `Problem` | 1,000 | one `topics/NN-*/<slug>.md` file |
 | `Topic` | 35 | `TAXONOMY.md` |
 | `Paper` | 4,932 | Key References (3,081 by arXiv id, 1 by DOI, 1,850 by title hash) |
-| `Person` | 15,097 | author lists, names as written |
-| `Venue` | 550 | venue text, normalised by an alias list |
-| `Institution` | 50 | Current Research, matched against 50 known labs |
-| `Assumption` | 2,499 | Formal Setting "Assumptions" lists |
+| `Person` | 15,102 | author lists, names as written (ids keep letters of every script) |
+| `Venue` | 561 | venue text, normalised by an alias list (sister journals of Nature and Science are their own venues) |
+| `Institution` | 51 | Current Research, matched against 52 known labs (MIRI never occurs) |
+| `Assumption` | 2,496 | Formal Setting "Assumptions" lists (up to the next bold heading) |
 | `OpenQuestion` | 3,790 | What Is Not Known |
 | `Obstruction` | 6 | Why It Is Hard |
 | `FutureDirection` | 1,000 | Concrete Next Experiment |
@@ -181,9 +181,9 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 
 ## Known limits (measured)
 
-- **Venues:** 87 papers get two venues from different citations (C13). In 10 of them the catalog
+- **Venues:** 88 papers get two venues from different citations (C13). In 10 of them the catalog
   contradicts itself (8 ICLR vs ICML, 2 ICML vs NeurIPS). One venue node has the empty id `venue:`.
-- **Assumptions:** 404 problems have none; 189 of them state assumptions in an inline
+- **Assumptions:** 405 problems have none; 190 of them state assumptions in an inline
   `(i) … (ii) …` form the parser misses (O9).
 - **Provenance:** no `retrieved_at` on nodes, no provenance on edges (S4, S5).
 - **People:** names are as written; 52% are initials or surname only, and nothing is merged.
