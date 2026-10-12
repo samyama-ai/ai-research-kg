@@ -15,7 +15,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 4. Which topics have the largest share of open problems?
 5. Which problems are theoretically open vs empirically open vs methodologically blocked?
 6. Which problems are solved but impractical?
-7. Which problems are runnable today but nobody has tried at scale?
+7. Which open problems have a next experiment that fits on a single machine (§8 compute budget)? (The catalog doesn't record who has tried what, so "nobody has tried at scale" can't be answered from it.)
 8. What are the most common reasons these AI problems remain hard?
 
 ## B Understanding an AI Research Problem
@@ -36,7 +36,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 ## D Researchers & Labs
 20. Which researchers are linked to the most problems?
 21. Which researchers work across the most AI topics?
-22. Which labs are currently working on the most open problems?
+22. Which labs are named (§7 Current Research) on the most open problems? (The page naming a lab is the only evidence; activity isn't independently verified.)
 23. Which researchers or labs are working on problem X?
 24. Which researchers frequently collaborate on these problems?
 
@@ -51,7 +51,6 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 30. Which pairs of AI topics are most strongly connected?
 31. Which problems are most similar to problem X?
 32. Which problems bridge otherwise unrelated AI topics?
-33. If problem X were solved, which other problems could it help solve? (stretch: needs a directional link the data doesn't have)
 34. Which problems depend on the same underlying assumption?
 35. Which AI research topics form natural clusters?
 
@@ -65,7 +64,10 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 40. How much funding has each problem received?
 41. Which model tops a given benchmark leaderboard?
 
-## Later: Responsible AI (after the Berkeley student's survey)
+## Stretch (not in the core list; needs data the catalog doesn't have)
+33. If problem X were solved, which other problems could it help solve? Needs a directional "enables" link between problems, which the catalog never states. The number is kept so schema.md §10 still lines up.
+
+## Later: Responsible AI (after the survey of RAI frameworks a UC Berkeley student working with the team is preparing; unpublished, no citation yet)
 - Which problems touch safety, privacy, fairness or interpretability?
 - Which RAI frameworks (NIST AI RMF, EU AI Act, ISO/IEC 42001) apply to which problems?
 
@@ -84,25 +86,28 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 - Method / Algorithm: named in "State of the Art"
 - OpenQuestion: each classified gap in "What Is Not Known" (theoretically open / empirically open / methodologically blocked)
 - Obstruction: reasons a problem is hard, from "Why It Is Hard" (e.g. compute, no ground truth, bad measurement)
-- Assumption: assumptions listed in "Formal Setting" (e.g. "features are linear directions")
+- Assumption: assumptions listed in "Formal Setting" (e.g. "features are linear directions"), one per problem
+- AssumptionClass: a curated canonical category that similar assumptions point to (answers Q34 without merging problem-specific wording)
 - FutureDirection: the "Concrete Next Experiment" (with compute_budget, e.g. "200 A100-hours")
+- DataSource: bookkeeping node for the pinned ai_research commit (licence, version, fetched_at)
 
 ## Relationships (edges)
 - Problem -IN_TOPIC-> Topic
-- Problem -CITES-> Paper (property role: one of 7 grouped citation roles, plus raw source tag)
+- Problem -CITES-> Paper (property role: one of 7 grouped citation roles, or `untagged` when the source has no tag; raw source tag kept)
 - Paper -AUTHORED_BY-> Person
 - Paper -APPEARED_AT-> Venue
 - Person -AFFILIATED_WITH-> Institution
 - Institution -ACTIVE_ON-> Problem
 - Problem -HAS_GAP-> OpenQuestion
 - Problem -MENTIONS-> Method
-- Problem -STATE_OF_ART-> Method (property evidence: established / claimed; same direction as the DBMS KG)
+- Problem -STATE_OF_ART-> Method (property evidence: established / claimed / benchmark_only, as in schema.md §3; same direction as the DBMS KG)
 - Problem -RESTS_ON-> Assumption
 - Assumption -INSTANCE_OF-> AssumptionClass (curated canonical category for Q34)
 - Problem -BLOCKED_BY-> Obstruction
 - Problem -HAS_NEXT_EXPERIMENT-> FutureDirection
 - Problem -RELATED_TO-> Problem
   - Not in the source data; must be computed (shared papers/methods, or embedding similarity)
+- Problem -FROM_SOURCE-> DataSource (bookkeeping: which pinned catalog version the page was read from)
 
 ## Data source
 - github.com/samyama-ai/ai_research: 1,000 problems, 35 topics, one .md file per problem (TEMPLATE.md layout)
@@ -117,9 +122,9 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 ## Reference KG
 - DBMS Research snap: samyama-graph/case_studies/dbms-research (same structure, sibling catalog)
 
-## Estimated size (counter rerun 2026-10-08; script: count_kg.py)
-- Rough planning range: ~25,000–28,000 nodes and ~55,000–60,000 edges; this is not a complete count of every schema type. `count_kg.py` measures only the fields listed in its JSON output.
-- Measured by `count_kg.py` on the local catalog snapshot: 1,000 problems, 35 topics, 4,941 papers, 11,659 distinct listed author strings, 2,492 assumption items, 3,810 §5 list items, 12,617 references, and 71.3% of references with an arXiv ID. Author identities and venue names are not resolved, so these are raw-string counts.
-- Rough estimates only: 50–100 labs, 2–3K methods, and venue normalization from 700 raw venue strings. The parser finds references on all 1,000 pages; it does not validate that every reference line is semantically correct. `README.md` and `candidates.json` are skipped.
+## Estimated size (counter rerun 2026-10-12 on commit a02e87b3; script: count_kg.py)
+- Rough planning range: ~28,000–29,000 nodes and ~64,000–65,000 edges (schema.md §11 shows the arithmetic: measured counts plus estimates for the types the counter doesn't produce).
+- Measured by `count_kg.py`: 1,000 problems, 35 topics, 5,004 papers, 11,894 distinct listed author strings, 699 distinct normalised raw venue strings, 45 institutions / 2,057 rule-matched links, 2,492 assumption items, 3,810 §5 list items, 12,878 references (261 without a role tag), and 71.5% of references with an arXiv ID. Author identities and venue names are not resolved, so these are raw-string counts.
+- Rough estimates only: ~200 venues after cleanup (same figure as schema.md), 2–3K methods, 8–12 obstruction types. The parser finds references on all 1,000 pages and reports any bullet it can't parse with its file line number; it does not validate that every reference line is semantically correct. `README.md` and `candidates.json` are skipped.
 
 Full schema: see schema.md (v0.1 draft, 2026-10-05).

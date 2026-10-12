@@ -1,7 +1,7 @@
 ---
 id: 01-fixture/fixture-problem
-title: Parser fixture
-status: open
+title: "Parser fixture with spaces in the title"
+status: solved-but-impractical
 provenance: synthesized
 ---
 
@@ -29,12 +29,17 @@ provenance: synthesized
 
 ## 7. Current Research
 
-- Google DeepMind is active.
+- Google DeepMind is active, and DeepMind published a follow-up.
 - Together, the group did not publish the result; Together AI did.
-- Meta-learning is the topic; Meta AI is an organization.
-- ETH Zurich and University of Washington are named.
+- Meta-learning is the topic; Meta AI is an organization. A fair comparison needs one more epoch.
+- ETH Zurich and University of Washington are named. Nvidia is spelled both ways.
 
 ## 10. Key References
 
 - **[Foundational]** Moerland, T., Alex Smith. *A paper with initials.* ICML, 2024. — arXiv:2401.12345
 - **[Survey]** Alex Smith. A title without italics. 2022.
+- Dao, T., Gu, A. *An untagged reference.* NeurIPS, 2023.
+- **[SOTA]** Lee, J.-P. *A shared title.* 2024. — arXiv:2402.00001
+- **[SOTA]** Kim, S. *A shared title.* 2024. — arXiv:2403.00002
+- **[Caution]** Park, H. *A shared title.*
+- **[Caution]**
