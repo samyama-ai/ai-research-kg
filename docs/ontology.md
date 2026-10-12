@@ -85,9 +85,15 @@ The catalog's own 669 free-text tags are kept in `role_raw`.
 
 ## Properties and code lists
 
-Every node carries `id`, `source`, `provenance`, `retrieved_at` (when the pinned catalog was fetched, from `data/ai_research.lock.json`, written at fetch time; left off when no fetch is recorded), `source_date` (the date of that catalog version) and (all but `DataSource`) `method`. Nodes read
-from one page also carry `source_url` at the pinned commit (`prov:hadPrimarySource`). Properties
-whose values come from a fixed list point to their scheme in
+Every node carries `id`, `source`, `provenance`, `retrieved_at` and `source_date`; all of them
+are required (kg:required; checks O5 and S4). `retrieved_at` is the date the pinned catalog was
+fetched and `source_date` the date of that catalog version, both read from
+`data/ai_research.lock.json`, which the download step writes. When no fetch is recorded the build
+leaves the two dates off and S4 fails, so a graph never carries a placeholder date. Every node but
+`DataSource` also carries `method`, and nodes read from one page carry `source_url` at the pinned
+commit (`prov:hadPrimarySource`). A `Paper` also carries `venue_variants`: a list of every other
+venue the catalog gives for it, preprint servers included, while `APPEARED_AT` holds the chosen
+one. Properties whose values come from a fixed list point to their scheme in
 [`vocab/concepts.yaml`](../vocab/concepts.yaml):
 
 | Property | Code list | Values |
@@ -120,7 +126,7 @@ with `rdfs:seeAlso`, not declared a sub-property of that object property.
 |---|---|---|
 | O1, O2 | Labels and edge types = classes and properties | ✅ 11 = 11, 11 = 11 |
 | O3 | Every edge goes from domain to range | ✅ 62,842 edges |
-| O4 | Cardinalities | ✅ (v1 failed: 87 papers had 2 venues) |
+| O4 | Cardinalities | ✅ (v1 failed: 88 papers had 2 venues, counted on the v1 graph as rebuilt on 2026-10-12; the first v1 build had 87) |
 | O5 | Required properties present | ✅ |
 | O6 | Exactly one primary obstruction per problem | ✅ |
 | O7 | `RELATED_TO` stored once per pair | ✅ |

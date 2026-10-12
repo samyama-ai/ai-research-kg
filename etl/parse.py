@@ -75,6 +75,8 @@ def role_bucket(tag: str) -> str:
 
 def normalise_venue(raw: str) -> str | None:
     raw = raw.strip(" .,;:—–-/(")
+    if raw.count(")") > raw.count("("):        # a ")" left without its "(" is residue; "(industry track)" is handled below
+        raw = raw.rstrip(")")
     low = raw.lower()
     for canonical, pat in VENUE_ALIASES:      # aliases first, so "S&P" is a venue although it has no two letters in a row
         if re.search(pat, low):
@@ -178,7 +180,8 @@ VIOLATED_RE = re.compile(
     + r"|\bfalse in practice", re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|\bapproximately\b|\bweakly\b|\bsometimes\b|\bmostly\b", re.I)
 HOLDS_RE = re.compile(_NEG + r"\bholds\b|\bnot violated\b|\bnever violated\b|\breasonable\b|\bsafe\b", re.I)
-MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b", re.I)   # "true for X ...; false for Y"
+# a mixed verdict: "true for X …, false/violated/… for Y" in one sentence (the contrast word must follow)
+MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b[^.]*\b(?:but|false|violated|fails?|except|unless|otherwise|not)\b", re.I)
 
 
 def assumption_status(text: str) -> str:
@@ -202,6 +205,39 @@ ASSUMPTION_HEAD_RE = re.compile(
     re.I | re.M)
 HEADING_MAX_WORDS = 10
 INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
+EQUATION_REF_RE = re.compile(r"\b(?:eqs?\.?|equations?|see|cf\.?)\s*$", re.I)   # "Eq. (1)", "see (2)": references, not items
+
+
+def _inline_enumeration(inline: str) -> list[str]:
+    """The items of an enumeration written on the heading line, "(i) … (ii) …", or [] when the
+    line is not one. The line must start with a marker, or carry at least two markers after a
+    short introduction; every item must have some text of its own (three words or more), and no
+    marker may be an equation or figure reference ("Eq. (1) and (2)")."""
+    markers = list(INLINE_ENUM_RE.finditer(inline))
+    if not markers or not (markers[0].start() == 0 or len(markers) >= 2):
+        return []
+    if any(EQUATION_REF_RE.search(inline[: m.start()]) for m in markers):
+        return []
+    items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+    if len(items) < len(markers) or any(len(strip_md(item).split()) < 3 for item in items):
+        return []
+    return items
+
+
+def _dedent_list(block: str) -> str:
+    """Remove the indentation of the first list line from every line, and no more, so that an
+    indented list reads as a list while its sub-bullets stay indented (continuations, not items)."""
+    first = next((l for l in block.splitlines() if l.strip()), "")
+    indent = first[: len(first) - len(first.lstrip())]
+    return "\n".join(l[len(indent):] if l.startswith(indent) else l for l in block.splitlines())
+
+
+def _table_rows(block: str) -> list[str]:
+    """The data rows of a Markdown table: everything after the header separator (`|---|`); a
+    table without a separator has no header, so all its rows are data."""
+    rows = [r.strip() for r in block.lstrip().splitlines() if r.strip().startswith("|")]
+    separator = next((i for i, r in enumerate(rows) if re.fullmatch(r"\|(?:\s*:?-{2,}:?\s*\|)+", r)), None)
+    return rows[separator + 1:] if separator is not None else rows
 PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
 LIST_START_RE = re.compile(r"^\s*(?:(?:-|\*|\d+\.)\s+\S|\|\s*\S)")   # a list item (marker, space, text) or table row; "**bold**" is not a bullet
 
@@ -245,20 +281,14 @@ def parse_assumptions(formal: str) -> list[dict]:
     inline = formal[m.end(): line_end if line_end != -1 else None].strip()
     below = _first_block(formal[line_end:] if line_end != -1 else "")
     out: list[dict] = []
-    stripped = below.lstrip()
-    markers = INLINE_ENUM_RE.findall(inline) if inline else []
     # A table or list under the heading is the content; anything on the heading line is then an
     # introduction (no page in the catalog has both, so nothing is read twice).
-    if stripped.startswith("|"):
-        rows = [r.strip() for r in stripped.splitlines() if r.strip().startswith("|")][2:]
-        out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in rows]
+    if below.lstrip().startswith("|"):
+        out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in _table_rows(below)]
     elif LIST_START_RE.match(below):
-        out += [_assumption(i, False) for i in list_items("\n".join(l.lstrip() for l in below.splitlines()))]
-    # Otherwise an enumeration on the heading line, "(i) ... (ii) ...": either the line starts with
-    # a marker, or at least two markers follow a short introduction. A lone "(1)" in prose
-    # ("see Eq. (1)") is a reference, not an enumeration.
-    elif markers and (INLINE_ENUM_RE.match(inline) or len(markers) >= 2):
-        out += [_assumption(p.strip(), True) for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+        out += [_assumption(i, False) for i in list_items(_dedent_list(below))]
+    elif inline and (items := _inline_enumeration(inline)):   # "(i) … (ii) …" on the heading line
+        out += [_assumption(item, True) for item in items]
     elif inline:   # prose items "Name: *status* — why."
         out += [_assumption(p.strip(), True) for p in PROSE_ITEM_RE.split(inline) if p.strip()]
     return [a for a in out if len(a["text"]) > 3]
@@ -338,11 +368,11 @@ def problem_files(root: Path) -> list[Path]:
 # Lazy re-exports of the graph builder (etl/build.py imports this module, so a
 # plain import here would be circular).
 # --------------------------------------------------------------------------- #
-_BUILD_NAMES = ("Graph", "build_graph", "main", "catalog_dates", "choose_venues")
+BUILD_EXPORTS = ("Graph", "build_graph", "main", "catalog_dates", "choose_venues")   # re-exported from etl.build
 
 
 def __getattr__(name: str):
-    if name in _BUILD_NAMES:
+    if name in BUILD_EXPORTS:
         from etl import build
         return getattr(build, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
