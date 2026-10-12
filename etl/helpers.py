@@ -22,6 +22,7 @@ import hashlib
 import math
 import numbers
 import re
+import unicodedata
 from collections.abc import Iterator, Sequence
 from decimal import Decimal
 from typing import Any
@@ -34,8 +35,9 @@ def norm_id(prefix: str, value: str) -> str:
 
 
 def slug(text: str) -> str:
-    """Lower-case, ASCII-ish slug: 'Findings of EMNLP' -> 'findings_of_emnlp'."""
-    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    """Lower-case slug that keeps letters of every script, so 'Łańcucki' and 'Lancucki' stay
+    different ids: 'Findings of EMNLP' -> 'findings_of_emnlp', 'Vilém Zouhar' -> 'vilém_zouhar'."""
+    return re.sub(r"[^\w]+", "_", unicodedata.normalize("NFKC", text).lower()).strip("_")
 
 
 def short_hash(text: str, n: int = 12) -> str:
@@ -52,6 +54,13 @@ def identifier(name: str) -> str:
 def _clean(text: Any) -> str:
     return (str(text).replace('"', "").replace("\\", "")
             .replace("\n", " ").replace("\r", " "))
+
+
+def checked_id(value: Any) -> str:
+    """An `id` must survive rendering unchanged, or two different ids could become one; refuse otherwise."""
+    if not isinstance(value, str) or not value or _clean(value) != value:
+        raise ValueError(f"id is empty or contains characters the engine would strip: {value!r}")
+    return value
 
 
 def _decimal_text(value: Decimal) -> str:
@@ -76,8 +85,8 @@ def cypher_literal(value: Any) -> str:
     """
     if value is None:
         return "null"
-    if isinstance(value, bool):
-        return "true" if value else "false"
+    if isinstance(value, bool) or getattr(getattr(value, "dtype", None), "kind", "") == "b":   # bool, numpy.bool_
+        return "true" if bool(value) else "false"
     if isinstance(value, numbers.Integral):
         return str(int(value))
     if isinstance(value, Decimal):
@@ -93,9 +102,10 @@ def cypher_literal(value: Any) -> str:
 
 
 def props_map(props: dict[str, Any]) -> str:
+    """`{k: v, …}` for the non-None properties, or "" when there are none (so no empty `{}` is emitted)."""
     inner = ", ".join(f"{identifier(k)}: {cypher_literal(v)}"
                       for k, v in props.items() if v is not None)
-    return "{" + inner + "}"
+    return "{" + inner + "}" if inner else ""
 
 
 DEFAULT_EDGE_BATCH = 50
@@ -112,7 +122,9 @@ def create_nodes(client, graph: str, label: str, rows: Sequence[dict],
     identifier(label)
     sent = 0
     for group in chunked(rows, batch):
-        parts = [f"(:{label} {props_map(r)})" for r in group]
+        for r in group:
+            checked_id(r.get("id"))
+        parts = [f"(:{label} {props_map(r)})".replace(" )", ")") for r in group]
         client.query("CREATE " + ", ".join(parts), graph)
         sent += len(group)
     return sent
@@ -138,8 +150,9 @@ def create_edges(client, graph: str, edges: Sequence[tuple],
                     var = f"v{len(var_of)}"
                     var_of[key] = var
                     match_parts.append(f"({var}:{identifier(label)})")
-                    where_parts.append(f"{var}.id = {cypher_literal(node_id)}")
-            prop_part = f" {props_map(props)}" if props else ""
+                    where_parts.append(f"{var}.id = {cypher_literal(checked_id(node_id))}")
+            rendered = props_map(props) if props else ""
+            prop_part = f" {rendered}" if rendered else ""
             create_parts.append(
                 f"({var_of[(src_label, src_id)]})-[:{identifier(rel)}{prop_part}]->"
                 f"({var_of[(tgt_label, tgt_id)]})"

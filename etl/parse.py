@@ -32,6 +32,7 @@ from etl.rules import (  # noqa: F401  (re-exported: tests and vocab checks read
     BUDGET_RE,
     COLLECTIVE_RE,
     EXP_FIELDS,
+    INSTITUTION_BY_ID,
     INSTITUTIONS,
     OBSTRUCTIONS,
     PREPRINT_VENUES,
@@ -87,7 +88,7 @@ def normalise_venue(raw: str) -> str | None:
 
 def split_authors(text: str) -> list[str]:
     text = re.sub(r"\([^)]*\)", "", text)            # "(Llama Team)", "(METR)" affiliations
-    text = re.sub(r"\([^,]*|[^,(]*\)", lambda m: m.group(0).split("(")[0].replace(")", ""), text)
+    text = text.replace("(", "").replace(")", "")   # a stray, unbalanced parenthesis
     text = re.sub(r",?\s*\bet al\.?", "", text).strip()
     text = text.replace(" and ", ", ").replace(" & ", ", ")
     parts = [p.strip() for p in text.split(",") if p.strip()]
@@ -98,7 +99,9 @@ def split_authors(text: str) -> list[str]:
             names[-1] = f"{p} {names[-1]}"
         else:
             names.append(p)
-    return [n for n in names if 1 < len(n) <= 60 and not n.lower().startswith(("the ", "team"))]
+    # drop fragments: one character, over-long, "the …" lead-ins and a bare "team" (a collective
+    # such as "Llama Team" is kept and classified by name_form)
+    return [n for n in names if 1 < len(n) <= 60 and not n.lower().startswith("the ") and n.lower() != "team"]
 
 
 def name_form(name: str) -> str:
@@ -120,8 +123,9 @@ def parse_reference(line: str) -> dict | None:
     title = title.strip().rstrip(".")
     arxiv = ARXIV_RE.search(rest)
     doi = DOI_RE.search(rest)
-    years = YEAR_RE.findall(rest)
-    venue_part = re.split(r"—|\s-\s|arXiv[:\s]", rest)[0]
+    # the year is read with the identifiers removed, so "arXiv:2010.11929" never yields 2010
+    years = YEAR_RE.findall(DOI_RE.sub("", ARXIV_RE.sub("", rest)))
+    venue_part = re.split(r"—|\s-\s|arxiv[:\s]", rest, flags=re.I)[0]
     venue_part = YEAR_RE.sub("", venue_part)
     return {
         "role_raw": tag.strip(),
@@ -161,15 +165,19 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-# "false" as a verdict, but not "false positives", "false-positive rate", "false alarms", "false discovery"
+# Verdict words. Negation is respected ("not violated" is not a violation, "no longer holds" and
+# "rarely holds" are not confirmations), and "false" is a verdict but "false positives",
+# "false-positive rate", "false alarms" and "false discovery" are not.
+_NEG = r"(?<!\bnot )(?<!\bnever )(?<!\brarely )(?<!\bseldom )(?<!longer )"
 _NOT_A_VERDICT = r"(?![\s-]+(?:positives?|alarms?|discover\w*|negatives?)\b)"
 VIOLATED_RE = re.compile(
-    r"\bviolated\b|\bfails?\b|does not hold|broken"
-    r"|(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
+    _NEG + r"\bviolated\b|" + _NEG + r"\bfails?\b|\bdoes not hold\b|\bno longer holds\b|\brarely holds\b|\bnever holds\b|"
+    + _NEG + r"\bbroken\b"
+    + r"|(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
     + r"|(?:^|[.;]\s+)false\b" + _NOT_A_VERDICT
     + r"|\bfalse in practice", re.I)
-PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|approximately|weakly|sometimes|mostly", re.I)
-HOLDS_RE = re.compile(r"\bholds\b|\breasonable\b|\bsafe\b", re.I)
+PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|\bapproximately\b|\bweakly\b|\bsometimes\b|\bmostly\b", re.I)
+HOLDS_RE = re.compile(_NEG + r"\bholds\b|\bnot violated\b|\bnever violated\b|\breasonable\b|\bsafe\b", re.I)
 MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b", re.I)   # "true for X ...; false for Y"
 
 

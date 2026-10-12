@@ -87,13 +87,14 @@ kg:Person a owl:Class ;
     rdfs:subClassOf foaf:Agent ;
     rdfs:seeAlso schema:Person ;
     rdfs:comment "An author as written in a reference; not resolved to a real-world identity in v1. A foaf:Agent, not a schema:Person, because 19 are collectives such as 'Llama Team' (name_form = collective)." ;
-    kg:idPattern "^person:[a-z0-9_]+$" .
+    kg:idPattern "^person:[^\\W_][\\w]*$" ;
+    rdfs:comment "Ids keep letters of every script (person:vilém_zouhar), lower-cased, with underscores between words." .
 
 kg:Venue a owl:Class ;
     rdfs:label "Venue" ;
     rdfs:comment "Where a paper appeared: conference, journal, workshop, preprint server or report series. Similar to schema:Periodical (journals) and schema:EventSeries (conferences), but one class covers both, so neither is a superclass." ;
     rdfs:seeAlso schema:Periodical, schema:EventSeries ;
-    kg:idPattern "^venue:[a-z0-9_]+$" .
+    kg:idPattern "^venue:[^\\W_][\\w]*$" .
 
 kg:Institution a owl:Class ;
     rdfs:label "Institution" ;

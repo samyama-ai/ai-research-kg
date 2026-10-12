@@ -8,7 +8,7 @@ v0.3.2, 2026-10-12. v0.2 (2026-10-07) chose the sources; v0.3 (2026-10-09) added
 actually holds and checks it; v0.3.1 (2026-10-12) answered the AI review of PR #3 (counts, status
 icons, sources); v0.3.2 (2026-10-12) describes v1.1: provenance dates from the fetch lock, one
 venue per paper with `venue_variants`, the venue arithmetic below, and the engine check of that day.
-Numbers are for **v1.1** (29,696 nodes, 62,845 edges), which fixed the three rules v1 broke.
+Numbers are for **v1.1** (29,707 nodes, 62,842 edges), which fixed the three rules v1 broke.
 Every count is measured by `python -m etl.conformance`, with the check ids
 from [conformance.md](conformance.md).
 
@@ -49,8 +49,8 @@ use have their own section, with no icon.
 | **arXiv category** (`cs.LG`, `cs.CL`, `stat.ML`) | arXiv | subject areas | `Paper.arxiv_categories`; Topic crosswalk | 🔑 | — |
 | **ROR / OpenAlex ids** | ROR; OurResearch (CC0) | institutions; works, authors | `Institution.ror_id`; fallback ids | 🔑 optional | — not loaded |
 
-**What v1.1 measures about the planned identifiers.** 52% of the 15,097 author names are
-initials or a surname only, so people can't be told apart without DBLP (C12). There are 522 venue
+**What v1.1 measures about the planned identifiers.** 52% of the 15,102 author names are
+initials or a surname only, so people can't be told apart without DBLP (C12). There are 527 venue
 names, 24 of them still look like parser residue, and 77 papers are cited with more than one
 venue (the others kept in `Paper.venue_variants`) (C11, C13), so venues need a canonical key such
 as the DBLP stream. ROR and OpenAlex are optional
@@ -77,7 +77,7 @@ The catalog's identifiers, plus the KG's controlled vocabularies, each a closed 
 |---|---|---|---|
 | **Topic number** `NN` + slug | 35 (01–35, stable, never reused) | `Topic.number`, `topic:<NN-slug>` | ✅ (C3) |
 | **Problem id** `NN-topic/slug` | 1,000 | `problem:<id>`; children `#assumption-N`, `#gap-N`, `#next-experiment` | ✅ (C1, C2) |
-| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ✅ all 29,696 (C1). v1 had one bad id, `venue:` |
+| **Node id patterns** | 11, one per label (`kg:idPattern` in the ontology) | every `id`; unique across the graph | ✅ all 29,707 (C1). v1 had one bad id, `venue:` |
 | `problem_status` | 5 used + `stale` (unused) | `Problem.status` | ✅ |
 | `catalog_provenance` | `synthesized` (all 1,000), `verified` | `Problem.catalog_provenance` | ✅ |
 | `cites_role` | 7 (+ `benchmark` proposed), each mapped to CiTO | `CITES.role` (raw tag in `role_raw`) | ✅ |
@@ -137,10 +137,10 @@ file. Result: all classes, relationships, domains, ranges and cardinalities matc
 |---|---|---|---|
 | **Naming conventions** (as the DBMS and Valuation KGs) | Samyama KG guide | labels PascalCase singular, edges UPPER_SNAKE, stable deterministic `id` | ✅ (S1, C2) |
 | **PROV-O provenance** (docs/schema.md §4) | W3C | `source`, `provenance`, `method` on every node; `source_url` on page-level nodes | ✅ (S2, S3) |
-| | | `retrieved_at` (when the pinned catalog was fetched, 2026-10-07) and `source_date` (the date of that version, 2026-09-10) on every node | ✅ all 29,696 nodes (S4). `retrieved_at` is the fetch recorded in `data/ai_research.lock.json`, `source_date` the commit's date, so a rebuild from the same checkout gives the same graph; `unknown` fails S4 |
+| | | `retrieved_at` (when the pinned catalog was fetched, 2026-10-07) and `source_date` (the date of that version, 2026-09-10) on every node | ✅ all 29,707 nodes (S4). `retrieved_at` is the fetch recorded in `data/ai_research.lock.json`, `source_date` the commit's date, so a rebuild from the same checkout gives the same graph; `unknown` fails S4 |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
-| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1: on 2026-10-12 the engine held exactly this build, 29,696 nodes and 62,845 edges, checked with `--url`; `etl/snapshot.py` checks the loaded counts against `snapshots/manifest.json`) |
+| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1: on 2026-10-12 the engine held exactly this build, 29,707 nodes and 62,842 edges, checked with `--url`; `etl/snapshot.py` checks the loaded counts against `snapshots/manifest.json`) |
 | **ISO 8601** | ISO | dates | ✅ (C7) |
 | **CC BY 4.0** (as `dbms_research`) | Creative Commons | licence of the graph | ⚠️ proposed; `ai_research` states no licence, so `DataSource.licence` says "none stated" (S8). Blocks publishing only |
 
@@ -172,25 +172,25 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 | `Problem` | 1,000 | one `topics/NN-*/<slug>.md` file |
 | `Topic` | 35 | `TAXONOMY.md` |
 | `Paper` | 4,932 | Key References (3,081 by arXiv id, 1 by DOI, 1,850 by title hash) |
-| `Person` | 15,097 | author lists, names as written |
-| `Venue` | 522 | venue text, normalised by an alias list; one venue per paper |
-| `Institution` | 50 | Current Research, matched against 50 known labs |
+| `Person` | 15,102 | author lists, names as written (ids keep letters of every script) |
+| `Venue` | 527 | venue text, normalised by an alias list; one venue per paper (sister journals of Nature and Science are their own venues) |
+| `Institution` | 51 | Current Research, matched against 52 known labs (MIRI never occurs) |
 | `Assumption` | 3,263 | Formal Setting "Assumptions": lists, tables, inline (i)/(ii) and prose forms |
 | `OpenQuestion` | 3,790 | What Is Not Known |
 | `Obstruction` | 6 | Why It Is Hard |
 | `FutureDirection` | 1,000 | Concrete Next Experiment |
 | `DataSource` | 1 | the catalog, pinned at `a02e87b3` |
 
-**62,845 edges** of 11 types; counts per type are in [ontology.md](ontology.md).
+**62,842 edges** of 11 types; counts per type are in [ontology.md](ontology.md).
 
 ## Known limits (measured)
 
 - **Venues:** each paper has one venue (a named venue beats a preprint server, then the most
-  cited, then the first seen). In v1, 87 papers had more than one `APPEARED_AT` edge (103 surplus
-  edges; one paper had 7). Ten of those duplicates came from residue strings or aliases that v1.1
+  cited, then the first seen). In v1, 88 papers had more than one `APPEARED_AT` edge (103 surplus
+  edges; one paper had 7). Eleven of those duplicates came from residue strings or aliases that v1.1
   resolves (`NSDI` = `USENIX NSDI`, `CACM`, `IJCV`, `TPAMI`), which leaves **77 papers the catalog
   cites with more than one venue**; every venue other than the chosen one is kept in
-  `Paper.venue_variants` (C13), 13 papers having two or more. For 10 of the 77 the other venue is
+  `Paper.venue_variants` (C13), 15 papers having two or more. For 10 of the 77 the other venue is
   only arXiv; the other 67 name two real venues. In 18 of them the catalog contradicts itself about
   the conference: ICLR vs ICML 8 times, ICML vs NeurIPS 2, ACL vs NAACL 2, ICLR vs NeurIPS 2, and
   NAACL vs NeurIPS, ACL vs EMNLP, COLM vs ICML, COLM vs NeurIPS once each (all present in v1 too).
@@ -203,11 +203,11 @@ Recorded so the schema has room for them. **Not loaded in v1.**
 - **Topic scope text:** 18 of the 166 scope terms name no problem (T8).
 
 **Fixed in v1.1** (rebuilt 2026-10-09; the numbers here are from the conformance run of
-2026-10-12 on that build): two venues for 87 papers (O4), the empty id `venue:` (C1),
-`retrieved_at` missing on every node (S4), and assumptions missed in 184 problems (O9: 404 → 220
-problems without one; 2,499 → 3,263 assumptions). The edge arithmetic: 62,178 − 103 surplus
-`APPEARED_AT` edges + 6 papers that gained a venue through the new aliases (4,462 → 4,365) + 764
-`RESTS_ON` edges (2,499 → 3,263) = 62,845. Nodes: 28,960 − 28 Venue + 764 Assumption = 29,696.
+2026-10-12 on that build): two venues for 88 papers (O4), the empty id `venue:` (C1),
+`retrieved_at` missing on every node (S4), and assumptions missed in 185 problems (O9: 405 → 220
+problems without one; 2,496 → 3,263 assumptions). The edge arithmetic, against the v1 graph as
+rebuilt on 2026-10-12: 62,178 − 103 surplus `APPEARED_AT` edges (4,468 → 4,365) + 767 `RESTS_ON`
+edges (2,496 → 3,263) = 62,842. Nodes: 28,974 − 34 Venue (561 → 527) + 767 Assumption = 29,707.
 The failing checks were tracked at the top of [conformance.md](conformance.md) until then; the
 licence still waits on the lead (issue #6).
 

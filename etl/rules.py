@@ -26,13 +26,16 @@ SECTION_KEYS = {
 
 # Citation-role buckets for the free-text "[Tag]" on a reference. Order matters:
 # the first match wins, so "SOTA / negative result" is a caution, not a sota.
+# Every keyword is anchored at a word start (and at the word end where a stem would
+# otherwise swallow unrelated words: "key" not "keyword", "fix" not "prefix",
+# "bound" not "boundary", "limit" not "unlimited", "origin" not "original").
 ROLE_RULES = [
-    ("caution", r"caution|critiqu|negative|counter|contra|refut|limit|illusion|rebuttal|confound|fragil|barrier|impossib"),
-    ("survey", r"survey|position|roadmap|sok|tutorial|programme|report"),
-    ("sota", r"sota|state of the art"),
-    ("foundational", r"foundational|background|^key|established|classical|precedent|origin"),
-    ("method", r"method|mechanis|mitigation|defen[cs]e|tool|algorithm|architecture|recipe|fix|solver|kernel"),
-    ("evidence", r"empirical|evidence|analysis|measure|replicat|result|ablation|diagnos|scaling|theory|bound|hardness"),
+    ("caution", r"\bcaution|\bcritiqu|\bnegative|\bcounter|\bcontra|\brefut|\blimit(?:s|ation)?\b|\billusion|\brebuttal|\bconfound|\bfragil|\bbarrier|\bimpossib"),
+    ("survey", r"\bsurvey|\bposition|\broadmap|\bsok\b|\btutorial|\bprogramme|\breport"),
+    ("sota", r"\bsota\b|\bstate[- ]of[- ]the[- ]art\b"),
+    ("foundational", r"\bfoundational|\bbackground|^key\b|\bestablished|\bclassical|\bprecedent|\borigin\b|\boriginal\b"),
+    ("method", r"\bmethod|\bmechanis|\bmitigation|\bdefen[cs]e|\btool|\balgorithm|\barchitecture|\brecipe|\bfix\b|\bsolver|\bkernel"),
+    ("evidence", r"\bempirical|\bevidence|\banalysis|\bmeasure|\breplicat|\bresult|\bablation|\bdiagnos|\bscaling|\btheory|\bbound(?:s)?\b|\bhardness"),
 ]
 
 # (canonical venue, regex on the lower-cased venue text)
@@ -61,7 +64,12 @@ VENUE_ALIASES = [
     ("IEEE S&P", r"s&p|security and privacy"), ("CCS", r"\bccs\b"), ("STOC", r"\bstoc\b"),
     ("FOCS", r"\bfocs\b"), ("SODA", r"\bsoda\b"), ("CHI", r"\bchi\b"),
     ("CoRL", r"\bcorl\b"), ("ICRA", r"\bicra\b"), ("RSS", r"\brss\b"),
-    ("FAccT", r"facct"), ("Nature", r"^nature\b"), ("Science", r"^science\b"),
+    ("FAccT", r"facct"),
+    # journal families: the flagship title only, its sister journals keep their own names
+    ("Nature Machine Intelligence", r"nature machine intelligence|\bnat\.? mach\.? intell"),
+    ("Nature Communications", r"nature communications|\bnat\.? commun"),
+    ("Science Advances", r"science advances|\bsci\.? adv\b"), ("Scientific Reports", r"scientific reports"),
+    ("Nature", r"^nature(?:\s+\d+)?$"), ("Science", r"^science(?:\s+\d+)?$"),
     ("PNAS", r"\bpnas\b"), ("Transformer Circuits Thread", r"transformer circuits"),
     ("Distill", r"^distill\b"), ("arXiv", r"^arxiv|arxiv preprint|^preprint"),
     ("OpenReview", r"openreview"),
@@ -72,10 +80,10 @@ PREPRINT_VENUES = {"arXiv", "OpenReview"}
 # The five obstruction types the catalog's TEMPLATE.md names in "Why It Is Hard":
 # code -> (display name, regex). Anything else becomes `other`.
 OBSTRUCTIONS = {
-    "compute_cost": ("Compute cost", r"comput\w* cost|\bcompute\b|expensive|\bcost\b|flop|exponential|factorial|budget"),
-    "confounded_measurement": ("Confounded measurement", r"confound"),
-    "absent_ground_truth": ("Absent ground truth", r"ground[- ]truth"),
-    "non_identifiability": ("Non-identifiability", r"identifiab"),
+    "compute_cost": ("Compute cost", r"\bcomput\w* cost|\bcompute\b|\bexpensive\b|\bcost(?:s|ly)?\b|\bflops?\b|\bexponential\b|\bfactorial\b|\bbudget\b"),
+    "confounded_measurement": ("Confounded measurement", r"\bconfound"),
+    "absent_ground_truth": ("Absent ground truth", r"\bground[- ]truth"),
+    "non_identifiability": ("Non-identifiability", r"\bidentifiab"),
     "invalid_evaluation": ("Evaluation does not measure what it names",
                            r"does not measure|measure what it names|measures? the (?:wrong|thing)|invalid evaluation|evaluation (?:that )?does"),
 }
@@ -101,25 +109,27 @@ SINGLE_MACHINE_RE = re.compile(
 # A budget at or under 8 GPUs x 24 h counts as "fits on one machine".
 SINGLE_MACHINE_GPU_HOURS = 192
 
-# (id, display name, kind, regex) checked against "Current Research". 51 names;
-# 50 occur in the catalog at the pinned commit (MIRI does not).
+# (id, display name, kind, regex) checked against "Current Research", case-sensitively.
+# Patterns exclude the known other meanings of a name: the MIT licence, FAIR data principles,
+# Apple products, Cambridge University Press and Cambridge MA, British Columbia, model names
+# (Mistral 7B, Qwen2.5) rather than the company. 52 names; MIRI never occurs at the pinned commit.
 INSTITUTIONS = [
     ("google_deepmind", "Google DeepMind", "industry", r"Google DeepMind|\bDeepMind\b|\bGDM\b"),
     ("google_research", "Google Research", "industry", r"Google Research|Google Brain|\bGoogle\b(?! DeepMind)"),
     ("anthropic", "Anthropic", "industry", r"\bAnthropic\b"),
     ("openai", "OpenAI", "industry", r"\bOpenAI\b"),
-    ("meta", "Meta AI (FAIR)", "industry", r"\bMeta(?: AI| FAIR)?\b(?!-)|\bFAIR\b"),
+    ("meta", "Meta AI (FAIR)", "industry", r"\bMeta(?: AI| FAIR)?\b(?!-)|\bFAIR\b(?!\s+(?:data|principles?))"),
     ("microsoft", "Microsoft Research", "industry", r"\bMicrosoft\b|\bMSR\b"),
-    ("apple", "Apple", "industry", r"\bApple\b"),
+    ("apple", "Apple", "industry", r"\bApple\b(?!\s+(?:Silicon|Watch|Vision|M\d))"),
     ("nvidia", "NVIDIA", "industry", r"\bNVIDIA\b|\bNvidia\b"),
     ("amazon", "Amazon", "industry", r"\bAmazon\b|\bAWS\b"),
     ("ibm", "IBM Research", "industry", r"\bIBM\b"),
     ("deepseek", "DeepSeek", "industry", r"\bDeepSeek\b"),
-    ("alibaba", "Alibaba (Qwen)", "industry", r"\bAlibaba\b|\bQwen\b"),
+    ("alibaba", "Alibaba (Qwen)", "industry", r"\bAlibaba\b|\bQwen\b(?![-\d.])"),
     ("bytedance", "ByteDance", "industry", r"\bByteDance\b"),
     ("tencent", "Tencent", "industry", r"\bTencent\b"),
     ("baidu", "Baidu", "industry", r"\bBaidu\b"),
-    ("mistral", "Mistral AI", "industry", r"\bMistral\b"),
+    ("mistral", "Mistral AI", "industry", r"\bMistral\b(?![- ]?(?:\d|7B|Large|Small|Nemo|Medium))"),
     ("cohere", "Cohere", "industry", r"\bCohere\b"),
     ("xai", "xAI", "industry", r"\bxAI\b"),
     ("huggingface", "Hugging Face", "industry", r"Hugging ?Face"),
@@ -132,15 +142,16 @@ INSTITUTIONS = [
     ("metr", "METR", "non-profit", r"\bMETR\b"),
     ("miri", "MIRI", "non-profit", r"\bMIRI\b"),
     ("epoch", "Epoch AI", "non-profit", r"\bEpoch AI\b"),
-    ("uk_aisi", "UK AI Security Institute", "government", r"UK AISI|AI Security Institute|AI Safety Institute"),
+    ("uk_aisi", "UK AI Security Institute", "government", r"UK AISI|UK AI (?:Security|Safety) Institute|(?<!US )(?<!U\.S\. )AI (?:Security|Safety) Institute(?! \(US)"),
+    ("us_aisi", "US AI Safety Institute (CAISI)", "government", r"US AISI|U\.?S\.? AI Safety Institute|\bCAISI\b"),
     ("stanford", "Stanford University", "academic", r"\bStanford\b"),
     ("berkeley", "UC Berkeley", "academic", r"\bBerkeley\b|\bBAIR\b"),
-    ("mit", "MIT", "academic", r"\bMIT\b"),
+    ("mit", "MIT", "academic", r"\bMIT\b(?!\s+[Ll]icen[cs]e)"),
     ("cmu", "Carnegie Mellon University", "academic", r"\bCMU\b|Carnegie Mellon"),
     ("princeton", "Princeton University", "academic", r"\bPrinceton\b"),
     ("harvard", "Harvard University", "academic", r"\bHarvard\b"),
     ("oxford", "University of Oxford", "academic", r"\bOxford\b"),
-    ("cambridge", "University of Cambridge", "academic", r"\bCambridge\b"),
+    ("cambridge", "University of Cambridge", "academic", r"\bCambridge\b(?!,? ?MA\b)(?! University Press)"),
     ("eth", "ETH Zurich", "academic", r"\bETH\b"),
     ("epfl", "EPFL", "academic", r"\bEPFL\b"),
     ("mila", "Mila", "academic", r"\bMila\b"),
@@ -148,7 +159,7 @@ INSTITUTIONS = [
     ("uw", "University of Washington", "academic", r"University of Washington|\bUW\b"),
     ("nyu", "NYU", "academic", r"\bNYU\b"),
     ("cornell", "Cornell University", "academic", r"\bCornell\b"),
-    ("columbia", "Columbia University", "academic", r"\bColumbia\b"),
+    ("columbia", "Columbia University", "academic", r"(?<!British )\bColumbia\b"),
     ("tsinghua", "Tsinghua University", "academic", r"\bTsinghua\b"),
     ("pku", "Peking University", "academic", r"\bPeking\b|\bPKU\b"),
     ("kaist", "KAIST", "academic", r"\bKAIST\b"),
@@ -156,3 +167,4 @@ INSTITUTIONS = [
     ("edinburgh", "University of Edinburgh", "academic", r"\bEdinburgh\b"),
     ("ucl", "UCL", "academic", r"\bUCL\b"),
 ]
+INSTITUTION_BY_ID = {entry[0]: entry for entry in INSTITUTIONS}

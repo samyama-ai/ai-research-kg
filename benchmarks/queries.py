@@ -60,9 +60,12 @@ QUERIES = [
          cypher="MATCH (p:Problem)-[:IN_TOPIC]->(t:Topic) WHERE p.status = 'solved-but-impractical' RETURN t.name AS topic, p.title AS problem ORDER BY topic"),
     dict(id="AR08", scope=(8,), question="What are the most common reasons these problems remain hard?",
          cypher="MATCH (p:Problem)-[:BLOCKED_BY]->(o:Obstruction) RETURN o.name AS obstruction, count(p.id) AS problems ORDER BY problems DESC"),
-    dict(id="AR09", scope=(7, 37), question="Which open problems have a next experiment that fits on a single machine?",
+    dict(id="AR09", scope=(37,), question="Which open problems have a next experiment that fits on a single machine?",
          cypher="MATCH (p:Problem)-[:HAS_NEXT_EXPERIMENT]->(f:FutureDirection) WHERE p.status = 'open' AND f.single_machine = true "
                 "RETURN p.title AS problem, f.compute_budget_gpu_hours AS gpu_hours ORDER BY gpu_hours ASC LIMIT 10"),
+    dict(id="AR33", scope=(7,), question="Which problems, whatever their status, have a next experiment that fits on a single machine?",
+         cypher="MATCH (p:Problem)-[:HAS_NEXT_EXPERIMENT]->(f:FutureDirection) WHERE f.single_machine = true "
+                "RETURN p.title AS problem, p.status AS status, f.compute_budget_gpu_hours AS gpu_hours ORDER BY gpu_hours ASC LIMIT 10"),
 
     # --- B. One problem ---------------------------------------------------------
     dict(id="AR10", scope=(9, 10), question="What does problem X state, and what is its status and topic?",

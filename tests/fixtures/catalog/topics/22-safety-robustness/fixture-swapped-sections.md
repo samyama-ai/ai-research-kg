@@ -12,8 +12,12 @@ provenance: synthesized
 
 # Fixture Problem With Swapped Sections
 
-> Test fixture, not part of the catalog. Sections 9 and 10 are swapped on purpose,
-> as in one real catalog file.
+> Test fixture, not part of the catalog, and not a description of anyone's research. Sections 9
+> and 10 are swapped on purpose, as in one real catalog file. The two real references (Reluplex,
+> Compact Proofs) are shared with the other fixture page so that paper deduplication and the
+> computed RELATED_TO edge can be tested; the other two references are invented, with invented
+> authors, and the organisations named in "Current Research" appear only so the institution
+> matcher has something to match.
 
 ## 1. Problem Statement
 
@@ -24,6 +28,9 @@ Can a certified refusal bound be computed for a small model?
 **Assumptions, and which are violated.**
 1. *Linear representation:* features are directions. Violated: circular features exist.
 2. *Finite input region:* the input set is enumerable. Holds for the toy task.
+
+**Quantities as measured.**
+1. This later list is not an assumption and must not be read as one.
 
 ## 3. State of the Art
 
@@ -45,8 +52,8 @@ The specific obstruction is **absent ground truth compounded by non-identifiabil
 
 ## 7. Current Research (as of 2026)
 
-- **Compact proofs** — Anthropic and MIT groups extend proofs to two layers.
-- **Auditing games** — Google DeepMind runs auditing games.
+- **Compact proofs** — fixture bullet naming Anthropic and MIT so the institution matcher fires; not a claim about either.
+- **Auditing games** — fixture bullet naming Google DeepMind for the same reason.
 
 ## 8. Concrete Next Experiment
 
@@ -64,5 +71,5 @@ A two-layer model on a 64-token vocabulary.
 
 - **[Foundational]** Katz, Barrett, Dill, Julian, Kochenderfer. *Reluplex: An Efficient SMT Solver for Verifying Deep Neural Networks.* CAV, 2017. — arXiv:1702.01135
 - **[SOTA]** Gross, Chughtai, et al. *Compact Proofs of Model Performance via Mechanistic Interpretability.* 2024. — arXiv:2406.11779
-- **[Survey]** Moerland, T., Broekens, J., Plaat, A. *Model-based Reinforcement Learning: A Survey.* Foundations and Trends in ML, 2023.
-- **[Caution]** Neel Nanda (Google DeepMind) & Arthur Conmy. *A Made-Up Caution Paper.* Findings of EMNLP, 2024.
+- **[Survey]** Fixture, F., Example, E., Sample, S. *An Invented Survey of Toy Verification (fixture: tests the "Surname, I." author form and a non-arXiv venue).* Journal of Fixture Studies, 2023.
+- **[Caution]** Ada Fixture (Example Lab) & Bo Sample. *An Invented Caution Paper (fixture: tests an affiliation in parentheses and "&").* Findings of EMNLP, 2024.
