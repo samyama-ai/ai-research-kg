@@ -2,7 +2,18 @@
 
 Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1). Newest entry first.
 
-## 2026-10-12 — AI reviewer, round 2 (PR #1)
+## 2026-10-12 (later) — AI reviewer on PR #4: the Phase 1 counter again
+
+**Who:** Krithi. PR #1 was merged into PR #4 the same day, and the reviewer's second pass on PR #4 found more in `etl/count_kg.py`, all fixed and re-run (the recount below is updated to the new run):
+
+- A year was read out of an arXiv id when nothing else gave one (`arXiv:2010.11929` → 2010); identifiers are removed before the year is read.
+- `PaperIndex` could overwrite a record that had an arXiv id with one that had none; records now only fill each other's gaps.
+- Indented sub-bullets counted as references; only top-level bullets do.
+- Ambiguous aliases (`Oxford`, `Cambridge`, `Toronto`, `Peking`, `Qwen`) are gone; universities need their full name. Institutions matched: 45 → 43, links 2,057 → 1,950.
+- Alias patterns are sorted by the alias length, not by the length of the escaped regex.
+- A reference whose title normalises to nothing no longer merges with every other such reference.
+
+## 2026-10-12 — AI reviewer, round 2 on the Phase 1 documents (PR #1, since merged into PR #4)
 
 **Who:** Krithi. Fixes for the AI-Reviewer's second REQUEST_CHANGES (2026-10-09) on PR #1.
 
@@ -18,7 +29,7 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 - Output gains `nodes_measured`, `edges_measured` (now including ACTIVE_ON) and their totals, so schema.md §11 can show its arithmetic.
 - `tests/test_count_kg.py` grew from 1 to 6 tests; the fixture page covers each of the bugs above.
 
-### Recount (commit `a02e87b3`, same catalog as before)
+### Recount (`ai_research` commit `a02e87b3`, the pinned catalog; same catalog as before)
 
 | Figure | Before | After | Why |
 |---|---|---|---|
@@ -26,8 +37,8 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 | Papers | 4,941 | 5,004 | same |
 | Distinct author strings | 11,659 | 11,894 | new papers add names; the initials fix removes bogus one-letter "authors" |
 | AUTHORED_BY | 19,529 | 19,166 | `Surname, T.` is one author again |
-| APPEARED_AT | 4,262 | 4,313 | untagged references with venues |
-| Institutions / ACTIVE_ON | 50 / 1,901 | 45 / 2,057 | aliases collapse (DeepMind → Google DeepMind); `Microsoft`, `Nvidia`, `UC Berkeley`, `AI2` now recognised; `fair`/`epoch` false hits gone |
+| APPEARED_AT | 4,262 | 4,436 | untagged references with venues; years are no longer read out of arXiv ids, so more venue strings parse |
+| Institutions / ACTIVE_ON | 50 / 1,901 | 43 / 1,950 | aliases collapse (DeepMind → Google DeepMind); `Microsoft`, `Nvidia`, `UC Berkeley`, `AI2` now recognised; `fair`/`epoch` false hits gone; bare `Oxford`/`Cambridge`/`Toronto`/`Peking`/`Qwen` no longer count (second PR #4 pass). These 43 are the counter's alias list; the build in `etl/rules.py` has 52 names |
 | arXiv share | 71.3% | 71.5% | |
 | Min references per problem | 4 | 8 | the low pages were the ones with untagged bullets |
 
@@ -38,6 +49,8 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 
 ## 2026-10-05 — scope, size estimate, schema draft
 
+*Edited after the fact: on 2026-10-12 items 5 and 6 and the "Known data issues" were updated to the reviewed figures, marked "(edited 2026-10-12)"; the rest is as written on the day.*
+
 **Who:** Krithi, after Naresh's team meeting on 2026-10-05.
 
 ### What was done
@@ -46,8 +59,8 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 2. **Chose the repo name:** `ai-research-kg`, matching the `<topic>-kg` pattern (cricket-kg, edge-ai-kg, ...). The data repo `samyama-ai/ai_research` keeps its own name. The repo was created from `kg-repo-template` on Gitea.
 3. **Read the build guide** (*How to Build a Samyama KG*, 9 phases) and the four-layer graph-stack wiki page. This KG is mainly Layer 1 (domain vocabulary and connections), stored in Layer 2 (openCypher).
 4. **Wrote the scope note** (`docs/scope.md`): one core question, 41 example questions in groups A–H (including two the graph should refuse), the brief, the entity and relationship glossary, the data source and licence, out-of-scope items, and the reference KG.
-5. **Estimated the graph size** (`etl/count_kg.py`, run over all 1,000 problem files): the script reports measured source counts for the fields it parses. Whole-graph totals (~25–28K nodes / ~55–60K edges) are rough planning estimates because some node and edge types are not produced by the counter.
-6. **Drafted the schema** (`docs/schema.md`, v0.1): 12 core node types plus a DataSource bookkeeping node, 16 relationship types (one computed, RELATED_TO; one bookkeeping, FROM_SOURCE, added 2026-10-12), provenance on every node and edge, fixed vocabularies for citation roles and obstructions, question coverage against the scope, and an implementation checklist. Laid out like the *Enterprise Valuation KG — Detailed Schema*.
+5. **Estimated the graph size** (`etl/count_kg.py`, run over all 1,000 problem files): the script reports measured source counts for the fields it parses. Whole-graph totals are rough planning estimates because some node and edge types are not produced by the counter *(edited 2026-10-12: the estimate of the day, ~25–28K nodes / ~55–60K edges, was superseded by the recount, ~28–29K nodes / ~64–65K edges, see schema-v0.1-plan.md §11; the graph as built has 28,974 nodes and 62,178 edges)*.
+6. **Drafted the schema** (`docs/schema.md`, v0.1): 12 core node types plus a DataSource bookkeeping node, 16 relationship types (one computed, RELATED_TO; one bookkeeping, FROM_SOURCE) *(edited 2026-10-12: FROM_SOURCE was added in the review; the day's draft had 15)*, provenance on every node and edge, fixed vocabularies for citation roles and obstructions, question coverage against the scope, and an implementation checklist. Laid out like the *Enterprise Valuation KG — Detailed Schema*.
 
 ### Decisions
 
@@ -60,8 +73,8 @@ Work log for the AI Research KG, following *How to Build a Samyama KG* (Phase 1)
 
 ### Known data issues (from the count script)
 
-- Author strings are messy (surname only, initials, full name). The counter preserves `Surname, Initial` pairs; 71.5% of references have an arXiv ID. 261 reference bullets carry no role tag. Person identities still need resolution.
-- Venue normalization is unresolved: the counter finds 699 distinct normalised raw venue strings, with ~200 venues only a rough estimate.
+- Author strings are messy (surname only, initials, full name). The counter preserves `Surname, Initial` pairs; 71.5% of references have an arXiv ID. 261 reference bullets carry no role tag. Person identities still need resolution. *(edited 2026-10-12 to the recount)*
+- Venue normalization is unresolved: the counter finds 708 distinct normalised raw venue strings, with ~200 venues only a rough estimate. *(edited 2026-10-12 to the recount)*
 - The counter parses references on all 1,000 pages; this is a syntax count and not semantic validation.
 - `README.md` and `candidates.json` inside topic folders are not problems and must be skipped.
 

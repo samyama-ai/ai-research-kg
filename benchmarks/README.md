@@ -1,6 +1,6 @@
 # Benchmarks
 
-`queries.py` holds the query catalog: the `docs/scope.md` questions as Cypher, AR01–AR32 (AR31 and AR32 were added for Q16 and Q32), plus AR90–AR91, which must return no rows because the graph holds no such data.
+`queries.py` holds the query catalog: the `docs/scope.md` questions as Cypher, AR01–AR33 (AR31, AR32 and AR33 were added for Q16, Q32 and Q7), plus AR90–AR91, which must return no rows because the graph holds no such data.
 
 ```bash
 python -m benchmarks.queries --url http://127.0.0.1:8090            # run all, print 3 rows each
@@ -10,7 +10,7 @@ python -m benchmarks.queries --coverage                              # which sco
 
 **Failure rule.** A run exits non-zero when any of these happens: a query raises an error; a query other than AR9x returns no rows; an AR9x query returns rows. `--only` with an id that doesn't exist is an error, not a silent pass.
 
-**Measured.** 2026-10-07 on engine 1.11.0 with the v1 graph: all 32 queries of that day passed, the slowest in about 30 ms. Re-run 2026-10-12 with the two new queries on the engine as it stood that day (holding the v1.1 graph): all 34 pass; the slowest, AR21 (researchers across topics), takes about 230 ms, the rest under 90 ms. Timings use `time.perf_counter()`.
+**Measured.** 2026-10-07 on engine 1.11.0 with the v1 graph: all 32 queries of that day passed, the slowest in about 30 ms. Re-run 2026-10-12 with the three new queries on the engine as it stood that day (holding the v1.1 graph): all 35 pass; the slowest, AR21 (researchers across topics), takes about 230 ms, the rest under 90 ms. Timings use `time.perf_counter()`.
 
 **Scope coverage.** Every question 1–41 is either answered by a query or listed in `UNANSWERED` with the reason; `tests/test_queries.py` fails if a question is missing or claimed twice. Questions no query answers in v1:
 

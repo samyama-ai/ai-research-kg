@@ -17,9 +17,9 @@ import sys
 from pathlib import Path
 
 SECTION_RE = re.compile(r"^## (\d+)\.([^\n]*)\n(.*?)(?=^## |\Z)", re.M | re.S)
-BULLET_RE = re.compile(r"^\s*[-*]\s+\S")
+BULLET_RE = re.compile(r"^[-*]\s+\S")                 # top level only: an indented sub-bullet is not a reference
 # A reference bullet: "- **[Role]** Authors. *Title.* Venue, year. — arXiv:..."; the role tag is optional.
-REFERENCE_RE = re.compile(r"^\s*[-*]\s+(?:\*\*\[([^]]+)\]\*\*)?\s*(.*?)\s*$")
+REFERENCE_RE = re.compile(r"^[-*]\s+(?:\*\*\[([^]]+)\]\*\*)?\s*(.*?)\s*$")
 ITALIC_RE = re.compile(r"\*([^*]+)\*")
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 ARXIV_RE = re.compile(r"arXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)", re.I)
@@ -53,7 +53,7 @@ INSTITUTIONS: dict[str, tuple[str, ...]] = {
     "Apple": ("Apple",),
     "Mistral AI": ("Mistral AI", "Mistral"),
     "DeepSeek": ("DeepSeek",),
-    "Alibaba": ("Alibaba", "Qwen"),
+    "Alibaba": ("Alibaba",),
     "Redwood Research": ("Redwood Research",),
     "METR": ("METR",),
     "MIRI": ("MIRI",),
@@ -61,12 +61,12 @@ INSTITUTIONS: dict[str, tuple[str, ...]] = {
     "UC Berkeley": ("UC Berkeley", "Berkeley"),
     "MIT": ("MIT",),
     "Princeton": ("Princeton",),
-    "Oxford": ("Oxford",),
-    "Cambridge": ("Cambridge",),
+    "University of Oxford": ("University of Oxford", "Oxford University"),
+    "University of Cambridge": ("University of Cambridge", "Cambridge University"),
     "Mila": ("Mila",),
-    "University of Toronto": ("University of Toronto", "Toronto"),
+    "University of Toronto": ("University of Toronto", "Vector Institute"),
     "Tsinghua": ("Tsinghua",),
-    "Peking University": ("Peking University", "Peking"),
+    "Peking University": ("Peking University",),
     "NYU": ("NYU",),
     "Harvard": ("Harvard",),
     "Cohere": ("Cohere",),
@@ -82,12 +82,15 @@ INSTITUTIONS: dict[str, tuple[str, ...]] = {
     "Salesforce": ("Salesforce",),
     "Epoch AI": ("Epoch AI",),
 }
-# Longest spelling first, so "Google DeepMind" is consumed before "DeepMind".
-INSTITUTION_PATTERNS = sorted(
-    ((re.compile(r"(?<!\w)" + re.escape(alias) + r"(?!\w)"), canonical)
-     for canonical, aliases in INSTITUTIONS.items() for alias in aliases),
-    key=lambda item: len(item[0].pattern), reverse=True,
-)
+# Longest spelling first (by the alias itself, not its escaped pattern), so "Google DeepMind"
+# is consumed before "DeepMind". Ambiguous bare words ("Oxford", "Cambridge", "Toronto",
+# "Peking", "Qwen") are not aliases: they also name places and models.
+INSTITUTION_PATTERNS = [
+    (re.compile(r"(?<!\w)" + re.escape(alias) + r"(?!\w)"), canonical)
+    for alias, canonical in sorted(
+        ((alias, canonical) for canonical, aliases in INSTITUTIONS.items() for alias in aliases),
+        key=lambda item: len(item[0]), reverse=True)
+]
 
 # Citation role buckets (docs/schema.md §5.2). Checked in this order; first hit wins.
 ROLE_RULES = (
@@ -149,9 +152,9 @@ def parse_reference(line: str) -> dict[str, str] | None:
         authors = ""
         title = body.strip(" .")
         rest = ""
-    year = YEAR_RE.search(rest)
-    venue = rest[: year.start()].strip(" .,;—–-") if year else ""
     arxiv = ARXIV_RE.search(body)
+    year = YEAR_RE.search(ARXIV_RE.sub("", rest))    # never read "2010" out of "arXiv:2010.11929"
+    venue = rest[: year.start()].strip(" .,;—–-") if year else ""
     return {
         "role": role,
         "authors": authors,
@@ -215,6 +218,8 @@ class PaperIndex:
     def add(self, reference: dict[str, str]) -> str:
         arxiv_id = reference["arxiv_id"]
         title = normalise(reference["title"])
+        if len(title) < 3:   # a blank title must not merge every untitled reference into one paper
+            title = normalise(f"{reference['authors']} {reference.get('year', '')} {reference['venue']}") or "untitled"
         key = self.key_by_arxiv.get(arxiv_id) if arxiv_id else None
         if key is None and title in self.key_by_title:
             candidate = self.key_by_title[title]
@@ -231,8 +236,10 @@ class PaperIndex:
             if arxiv_id:
                 self.key_by_arxiv[arxiv_id] = key
         self.key_by_title.setdefault(title, key)
-        if not self.papers[key]["authors"] and reference["authors"]:
-            self.papers[key] = reference
+        kept = self.papers[key]
+        for field in ("authors", "venue", "year", "arxiv_id"):   # fill gaps, never overwrite
+            if not kept.get(field) and reference.get(field):
+                kept[field] = reference[field]
         return key
 
 

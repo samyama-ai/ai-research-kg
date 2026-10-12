@@ -32,6 +32,7 @@ from etl.rules import (  # noqa: F401  (re-exported: tests and vocab checks read
     BUDGET_RE,
     COLLECTIVE_RE,
     EXP_FIELDS,
+    INSTITUTION_BY_ID,
     INSTITUTIONS,
     OBSTRUCTIONS,
     ROLE_RULES,
@@ -86,7 +87,7 @@ def normalise_venue(raw: str) -> str | None:
 
 def split_authors(text: str) -> list[str]:
     text = re.sub(r"\([^)]*\)", "", text)            # "(Llama Team)", "(METR)" affiliations
-    text = re.sub(r"\([^,]*|[^,(]*\)", lambda m: m.group(0).split("(")[0].replace(")", ""), text)
+    text = text.replace("(", "").replace(")", "")   # a stray, unbalanced parenthesis
     text = re.sub(r",?\s*\bet al\.?", "", text).strip()
     text = text.replace(" and ", ", ").replace(" & ", ", ")
     parts = [p.strip() for p in text.split(",") if p.strip()]
@@ -97,7 +98,9 @@ def split_authors(text: str) -> list[str]:
             names[-1] = f"{p} {names[-1]}"
         else:
             names.append(p)
-    return [n for n in names if 1 < len(n) <= 60 and not n.lower().startswith(("the ", "team"))]
+    # drop fragments: one character, over-long, "the …" lead-ins and a bare "team" (a collective
+    # such as "Llama Team" is kept and classified by name_form)
+    return [n for n in names if 1 < len(n) <= 60 and not n.lower().startswith("the ") and n.lower() != "team"]
 
 
 def name_form(name: str) -> str:
@@ -119,8 +122,9 @@ def parse_reference(line: str) -> dict | None:
     title = title.strip().rstrip(".")
     arxiv = ARXIV_RE.search(rest)
     doi = DOI_RE.search(rest)
-    years = YEAR_RE.findall(rest)
-    venue_part = re.split(r"—|\s-\s|arXiv[:\s]", rest)[0]
+    # the year is read with the identifiers removed, so "arXiv:2010.11929" never yields 2010
+    years = YEAR_RE.findall(DOI_RE.sub("", ARXIV_RE.sub("", rest)))
+    venue_part = re.split(r"—|\s-\s|arxiv[:\s]", rest, flags=re.I)[0]
     venue_part = YEAR_RE.sub("", venue_part)
     return {
         "role_raw": tag.strip(),
@@ -160,9 +164,12 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-VIOLATED_RE = re.compile(r"\bviolated\b|\bfails?\b|does not hold|broken", re.I)
-PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|approximately|weakly|sometimes|mostly", re.I)
-HOLDS_RE = re.compile(r"\bholds\b|\breasonable\b|\bsafe\b", re.I)
+# Verdict words, with negation respected: "not violated" is not a violation and "no longer
+# holds" / "rarely holds" are not confirmations.
+_NEG = r"(?<!\bnot )(?<!\bnever )(?<!\brarely )(?<!\bseldom )(?<!longer )"
+VIOLATED_RE = re.compile(_NEG + r"\bviolated\b|" + _NEG + r"\bfails?\b|\bdoes not hold\b|\bno longer holds\b|\brarely holds\b|\bnever holds\b|" + _NEG + r"\bbroken\b", re.I)
+PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|\bapproximately\b|\bweakly\b|\bsometimes\b|\bmostly\b", re.I)
+HOLDS_RE = re.compile(_NEG + r"\bholds\b|\bnot violated\b|\bnever violated\b|\breasonable\b|\bsafe\b", re.I)
 
 
 def assumption_status(text: str) -> str:
@@ -176,11 +183,18 @@ def assumption_status(text: str) -> str:
 
 
 def parse_assumptions(formal: str) -> list[dict]:
+    """The list under the bold "Assumptions…" heading of Formal Setting. The list ends at the
+    next bold paragraph heading (a blank line followed by `**…**`), so later lists in the
+    section, such as "Quantities as measured", are not read as assumptions."""
     m = re.search(r"^.*\*\*Assumptions?[^\n]*\n", formal, re.M | re.I)
     if not m:
         return []
+    tail = formal[m.end():]
+    next_heading = re.search(r"\n[ \t]*\n[ \t]*\*\*[^*\n]{2,80}\*\*", tail)
+    if next_heading:
+        tail = tail[: next_heading.start()]
     out = []
-    for item in list_items(formal[m.end():]):
+    for item in list_items(tail):
         nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
             re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item)
         name = strip_md(nm.group(1)) if nm else " ".join(strip_md(item).split()[:8])
