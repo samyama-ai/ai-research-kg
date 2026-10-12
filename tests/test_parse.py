@@ -274,7 +274,7 @@ def test_lock_path_is_defined_in_one_place(tmp_path):
 def test_enumeration_rules_reject_equation_references_and_keep_sub_bullets():
     # "Eq. (1) and (2)" is a pair of references, not an enumeration: the line stays one prose statement
     refs = "**Assumptions.** The bound follows from Eq. (1) and (2) under smoothness.\n"
-    assert [a["name"] for a in parse_assumptions(refs)] == ["The bound follows from Eq. (1) and"]
+    assert [a["name"] for a in parse_assumptions(refs)] == ["The bound follows from Eq. (1) and (2)"]
     # a sub-bullet is a continuation of its item, not an assumption of its own
     nested = "**Assumptions.**\n- *Linear features.* Violated.\n  - detail: circular features exist\n- *Fixed data.* Holds.\n"
     items = parse_assumptions(nested)
