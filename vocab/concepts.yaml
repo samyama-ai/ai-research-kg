@@ -1,0 +1,163 @@
+# Controlled vocabularies of the AI Research KG (the graph's own coding systems)
+#
+# Each scheme is a closed list of codes that one property may take. The parser
+# (etl/parse.py) produces these codes; etl/conformance.py checks that every value
+# in the graph is on its list; tests/test_standards.py fails if this file and the
+# parser drift apart. Pattern from enterprise-valuation-kg vocab/concepts.yaml
+# (SKOS-style: scheme -> concepts with code, label, definition).
+#
+# `status: in_use` = the graph carries these codes today.
+# `status: proposed` = a refinement from docs/taxonomy.md; not built yet.
+# `maps_to` = the nearest term in a published vocabulary (SKOS closeMatch unless
+# noted). `source` says where the list comes from; `ours` means we defined it.
+
+curated_on: "2026-10-09"
+
+schemes:
+
+  problem_status:
+    label: Problem status
+    property: Problem.status
+    status: in_use
+    source: "ai_research TEMPLATE.md frontmatter, plus methodologically-blocked (used by 96 problems, missing from TEMPLATE.md)"
+    concepts:
+      - {code: open, label: Open, definition: "No accepted solution; the problem is open in theory and in practice."}
+      - {code: empirically-open, label: Empirically open, definition: "Candidate answers exist but the experiments that would settle them have not been run or replicated."}
+      - {code: partially-solved, label: Partially solved, definition: "Solved for some settings, scales or variants, not in general."}
+      - {code: methodologically-blocked, label: Methodologically blocked, definition: "Progress waits on a missing method, metric or measurement, not on more compute."}
+      - {code: solved-but-impractical, label: Solved but impractical, definition: "A solution exists but costs too much to use at the scale that matters."}
+      - {code: stale, label: Stale, definition: "Listed in TEMPLATE.md for pages not reviewed recently; no problem uses it at the pinned commit.", in_graph: false}
+
+  catalog_provenance:
+    label: Catalog prose provenance
+    property: Problem.catalog_provenance
+    status: in_use
+    source: ai_research TEMPLATE.md frontmatter
+    concepts:
+      - {code: synthesized, label: Synthesized, definition: "The page was written by synthesis and has not been checked by an expert (all 1,000 today)."}
+      - {code: verified, label: Verified, definition: "An expert has checked the page.", in_graph: false}
+
+  cites_role:
+    label: Citation role
+    property: CITES.role
+    status: in_use
+    source: "ours: 669 free-text reference tags in Key References, grouped by etl/parse.py ROLE_RULES (first match wins); the tag is kept in CITES.role_raw"
+    concepts:
+      - {code: caution, label: Caution, definition: "Critique, negative result, counter-evidence or known limit.", maps_to: "cito:critiques"}
+      - {code: survey, label: Survey, definition: "Survey, position paper, roadmap, tutorial or report.", maps_to: "cito:citesAsRecommendedReading"}
+      - {code: sota, label: State of the art, definition: "The best-known result or method for the problem.", maps_to: "cito:citesAsAuthority"}
+      - {code: foundational, label: Foundational, definition: "Background or origin of the problem; the established starting point.", maps_to: "cito:obtainsBackgroundFrom"}
+      - {code: method, label: Method, definition: "A method, mechanism, mitigation, defence or tool the problem uses or builds on.", maps_to: "cito:usesMethodIn"}
+      - {code: evidence, label: Evidence, definition: "An empirical or theoretical result used as evidence.", maps_to: "cito:citesAsEvidence"}
+      - {code: context, label: Context, definition: "Related work, systems or anything not matched above.", maps_to: "cito:citesForInformation"}
+      - {code: benchmark, label: Benchmark or dataset, definition: "A benchmark, dataset, metric or evaluation the problem measures with. Proposed split out of context (about 400 of its 1,906 citations).", maps_to: "cito:usesDataFrom", status: proposed}
+
+  gap_kind:
+    label: Kind of open question
+    property: OpenQuestion.kind
+    status: in_use
+    source: "ai_research TEMPLATE.md section 5 (each gap labelled theoretically / empirically open or methodologically blocked); unclassified when the bold label names none of the three"
+    concepts:
+      - {code: theoretically_open, label: Theoretically open, definition: "No proof or theory settles it."}
+      - {code: empirically_open, label: Empirically open, definition: "The deciding experiment has not been run or replicated."}
+      - {code: methodologically_blocked, label: Methodologically blocked, definition: "No method or measurement can yet answer it."}
+      - {code: unclassified, label: Unclassified, definition: "The page's label names none of the three kinds (e.g. 'Open'); not guessed."}
+
+  obstruction:
+    label: Obstruction type
+    property: Obstruction.id (via BLOCKED_BY)
+    status: in_use
+    source: "the five obstructions named in ai_research TEMPLATE.md section 6, plus other; matched by keyword (etl/parse.py OBSTRUCTIONS)"
+    concepts:
+      - {code: compute_cost, label: Compute cost, definition: "The deciding experiment is too expensive at the scale that matters."}
+      - {code: confounded_measurement, label: Confounded measurement, definition: "The metric mixes several effects."}
+      - {code: absent_ground_truth, label: Absent ground truth, definition: "No reliable answer key exists."}
+      - {code: non_identifiability, label: Non-identifiability, definition: "Several explanations fit the same data."}
+      - {code: invalid_evaluation, label: Evaluation does not measure what it names, definition: "The benchmark or metric measures something other than its name."}
+      - {code: other, label: Other, definition: "None of the five matched; the page's own wording is kept in BLOCKED_BY.detail."}
+
+  assumption_status:
+    label: Assumption status
+    property: Assumption.violated
+    status: in_use
+    source: "ours: keywords in the assumption text (etl/parse.py assumption_status)"
+    concepts:
+      - {code: violated, label: Violated, definition: "The page says the assumption fails in practice."}
+      - {code: partly, label: Partly violated, definition: "The page says it holds only partly or approximately."}
+      - {code: holds, label: Holds, definition: "The page says it holds or is reasonable."}
+      - {code: unstated, label: Unstated, definition: "The page does not say."}
+
+  name_form:
+    label: Form of a person's name
+    property: Person.name_form
+    status: in_use
+    source: "ours: how the reference wrote the author (no external name resolution in v1)"
+    concepts:
+      - {code: full, label: Full name, definition: "Given name and family name, e.g. Rico Sennrich."}
+      - {code: initials, label: Initials, definition: "Initials and family name, e.g. T. Moerland."}
+      - {code: surname, label: Surname only, definition: "A single token, e.g. Wortsman. Never merged into a full name."}
+      - {code: collective, label: Collective author, definition: "A team or organisation, e.g. Llama Team."}
+
+  institution_kind:
+    label: Institution kind
+    property: Institution.kind
+    status: in_use
+    source: "ours (etl/parse.py INSTITUTIONS)"
+    concepts:
+      - {code: industry, label: Industry, definition: "A company or company lab."}
+      - {code: academic, label: Academic, definition: "A university or university institute."}
+      - {code: non-profit, label: Non-profit, definition: "A non-profit research organisation."}
+      - {code: government, label: Government, definition: "A government body or institute."}
+
+  extraction_method:
+    label: Extraction method
+    property: "<node>.method"
+    status: in_use
+    source: "ours; the PROV-O activity that produced the node"
+    concepts:
+      - {code: parsed, label: Parsed, definition: "Read directly from the catalog's Markdown by a fixed rule."}
+      - {code: keyword-classified, label: Keyword-classified, definition: "Mapped to a code by keyword rules; may misclassify."}
+      - {code: name-matched, label: Name-matched, definition: "Matched against a fixed alias list."}
+
+  relatedness_method:
+    label: How a computed link was computed
+    property: RELATED_TO.method
+    status: in_use
+    source: ours
+    concepts:
+      - {code: shared_papers, label: Shared papers, definition: "At least 2 cited papers in common; top 5 per problem by Jaccard similarity of their reference lists."}
+
+  provenance:
+    label: Provenance kind
+    property: "<node>.provenance"
+    status: in_use
+    source: "ours (as the DBMS and Valuation KGs)"
+    concepts:
+      - {code: real, label: Real, definition: "Taken from a real source; nothing in this graph is synthetic."}
+
+  venue_kind:
+    label: Venue kind
+    property: Venue.kind
+    status: proposed
+    source: "ours, proposed in docs/taxonomy.md; DBLP's split of streams into conf/ and journals/ is the model"
+    concepts:
+      - {code: conference, label: Conference, definition: "Conference proceedings (NeurIPS, ACL, OSDI)."}
+      - {code: journal, label: Journal, definition: "A journal (JMLR, TMLR, Nature)."}
+      - {code: workshop, label: Workshop, definition: "A workshop at a conference."}
+      - {code: preprint, label: Preprint, definition: "arXiv or OpenReview without a venue."}
+      - {code: report, label: Report, definition: "Technical report, model card or company blog post."}
+      - {code: book, label: Book, definition: "A book or book chapter."}
+      - {code: not_a_venue, label: Not a venue, definition: "Parser residue such as '(' or a lab name; to be removed, not classified."}
+
+  topic_area:
+    label: Topic area (level above the 35 topics)
+    property: "Topic -BROADER-> TopicArea"
+    status: proposed
+    source: "ours, proposed in docs/taxonomy.md from measured topic coupling (shared papers and RELATED_TO); topic numbers do not change"
+    concepts:
+      - {code: architecture, label: Model architecture and generative families, definition: "How the network is built and what it models.", topics: [1, 2, 7, 8, 9, 14, 15, 16, 34]}
+      - {code: training, label: Training, data and scaling, definition: "How models are trained, adapted and scaled, and on what data.", topics: [3, 6, 10, 13, 29, 30]}
+      - {code: systems, label: Systems and efficiency, definition: "Running training and inference on real hardware.", topics: [11, 12, 31, 32]}
+      - {code: post_training, label: Alignment, RL and reasoning, definition: "Shaping behaviour after pre-training.", topics: [4, 17, 18]}
+      - {code: trust, label: Trust, safety and evaluation, definition: "Whether the model can be understood, trusted and measured.", topics: [19, 20, 21, 22, 23, 28, 33]}
+      - {code: applications, label: Capabilities and modalities, definition: "Agents, modalities, languages and domains.", topics: [5, 24, 25, 26, 27, 35]}

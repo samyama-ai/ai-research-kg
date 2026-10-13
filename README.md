@@ -51,6 +51,8 @@ All numbers come from the build of 2026-10-12 (`python -m etl.build`, catalog co
 
 See [`schema/ai_research_kg.cypher`](schema/ai_research_kg.cypher), [`docs/schema.md`](docs/schema.md) and [`DATASET_CARD.md`](DATASET_CARD.md).
 
+Standards, coding systems, taxonomies and ontologies in full: **[docs/standards.md](docs/standards.md)**. The ontology as a file: [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl) ([docs/ontology.md](docs/ontology.md)); the code lists: [`vocab/concepts.yaml`](vocab/concepts.yaml); the taxonomy check and refinements: [docs/taxonomy.md](docs/taxonomy.md). Whether the graph keeps all of them is measured by `python -m etl.conformance --url http://127.0.0.1:8090` (report: [docs/conformance.md](docs/conformance.md)).
+
 ## Quick Start
 
 ```bash
@@ -66,7 +68,8 @@ docker run -d --name samyama-ai_research -p 8090:8080 \
 python -m etl.download_data                         # catalog -> data/ai_research (pinned commit; writes data/ai_research.lock.json)
 python -m etl.loader --url http://127.0.0.1:8090    # parse + load + verify counts (~30 s)
 python -m benchmarks.queries                        # the scope.md questions, 35 queries
-pytest                                              # parser, invariant, count and query-catalog tests
+python -m etl.conformance --url http://127.0.0.1:8090   # taxonomy/ontology/coding/standards checks
+pytest                                              # parser, invariant, count, query-catalog and standards tests
 
 # optional: portable snapshot, same format as dbms-research.sgsnap (snapshots/ is git-ignored)
 mkdir -p snapshots && curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/export
@@ -83,14 +86,17 @@ etl/parse.py           # one page -> references, assumptions, gaps, experiment, 
 etl/build.py           # catalog walk -> Graph (ids, paper dedup, computed RELATED_TO)
 etl/loader.py          # schema + batched load + count verification
 etl/helpers.py         # Cypher literals, identifier checks, batched CREATE
+etl/conformance.py     # checks the graph against taxonomy, ontology, code lists, standards (etl/conformance_lib.py: inputs, report)
 etl/count_kg.py        # Phase 1 size estimate (kept for reference)
 schema/                # Cypher schema (indexes)
+ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
+vocab/                 # controlled vocabularies (concepts.yaml)
 benchmarks/queries.py  # query catalog AR01-AR33, AR90-AR91, with scope.md coverage
 mcp_server/            # MCP server exposing the graph to Claude (from the KG template; not yet adapted)
 demo/                  # recorded demo (from the KG template; not yet recorded for this graph)
 tools/insight_proxy.py # local CORS proxy so Samyama Insight can reach the engine (docs/ENGINE-NOTES.md)
-docs/                  # scope, schema (as built) and the v0.1 plan, standards, engine notes, logs
-tests/                 # parser tests on fixtures, full-graph invariants, count and query-catalog tests
+docs/                  # scope, schema (as built) and the v0.1 plan, standards, ontology, taxonomy, conformance, engine notes, logs
+tests/                 # parser tests on fixtures, full-graph invariants, count, query-catalog and standards tests
 ```
 
 ## Known limits (v1)

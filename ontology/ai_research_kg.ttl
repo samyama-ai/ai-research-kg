@@ -1,0 +1,232 @@
+# AI Research KG ontology, v0.1.1 (2026-10-12; first written 2026-10-09)
+#
+# The graph is a labelled property graph (Samyama, openCypher). This file is its
+# ontology written in OWL/RDFS so that it can be read by other tools and checked:
+#   - every node label is an owl:Class, every edge type an owl:ObjectProperty
+#     with rdfs:domain / rdfs:range, every node property an owl:DatatypeProperty;
+#   - kg:minCount / kg:maxCount give the cardinality the loader promises;
+#   - rdfs:subClassOf / rdfs:subPropertyOf link to published ontologies where ours is a
+#     narrower term, rdfs:seeAlso where it is only similar (skos:closeMatch is for SKOS
+#     concepts, not for classes or properties);
+#   - kg:propertyName gives a property's name in the graph when two classes share one
+#     (`kind`); kg:notRequiredOn lists the classes a required property may be missing from.
+# etl/conformance.py reads this file and checks the graph against it.
+# Human-readable version: docs/ontology.md.
+#
+# The namespace is a name, not yet a resolvable URL.
+
+@prefix kg:      <https://samyama.ai/kg/ai-research/ontology#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov:    <http://www.w3.org/ns/prov#> .
+@prefix dcat:    <http://www.w3.org/ns/dcat#> .
+@prefix schema:  <https://schema.org/> .
+@prefix foaf:    <http://xmlns.com/foaf/0.1/> .
+@prefix cito:    <http://purl.org/spar/cito/> .
+@prefix fabio:   <http://purl.org/spar/fabio/> .
+@prefix orkg:    <https://orkg.org/class/> .
+
+<https://samyama.ai/kg/ai-research/ontology>
+    a owl:Ontology ;
+    rdfs:label "AI Research KG ontology" ;
+    owl:versionInfo "0.1.1" ;
+    dcterms:created "2026-10-09"^^xsd:date ;
+    dcterms:modified "2026-10-12"^^xsd:date ;
+    dcterms:source <https://github.com/samyama-ai/ai_research> ;
+    rdfs:comment "Classes, relationships and properties of the AI Research Knowledge Graph (1,000 open AI research problems in 35 topics)." .
+
+# Annotation properties used for cardinality and code lists
+kg:minCount a owl:AnnotationProperty ; rdfs:comment "Each node of the domain class has at least this many edges of this type." .
+kg:maxCount a owl:AnnotationProperty ; rdfs:comment "Each node of the domain class has at most this many edges of this type." .
+kg:inverseMinCount a owl:AnnotationProperty ; rdfs:comment "Each node of the range class has at least this many incoming edges of this type." .
+kg:inverseMaxCount a owl:AnnotationProperty ; rdfs:comment "Each node of the range class has at most this many incoming edges of this type." .
+kg:codeList a owl:AnnotationProperty ; rdfs:comment "Name of the scheme in vocab/concepts.yaml that lists the allowed values." .
+kg:idPattern a owl:AnnotationProperty ; rdfs:comment "Regular expression every id of this class matches." .
+kg:required a owl:AnnotationProperty ; rdfs:comment "true when every node of the domain class carries the property." .
+kg:computed a owl:AnnotationProperty ; rdfs:comment "true when the edge is computed, not stated in the source." .
+kg:onEdge a owl:AnnotationProperty ; rdfs:comment "true when the property is carried by an edge, not a node." .
+kg:propertyName a owl:AnnotationProperty ; rdfs:comment "The property's name in the graph when it differs from the local name here (two classes both carry a `kind`). rdfs:label is only a label." .
+kg:notRequiredOn a owl:AnnotationProperty ; rdfs:comment "A class that a kg:required property without a domain may be missing from." .
+
+# --------------------------------------------------------------------------- #
+# Classes (node labels)
+# --------------------------------------------------------------------------- #
+kg:Problem a owl:Class ;
+    rdfs:label "Problem" ;
+    rdfs:comment "One open AI research problem: one page of the catalog. The nearest published class is ORKG's Problem, which has no formal URI, so the link is rdfs:seeAlso." ;
+    rdfs:seeAlso orkg:Problem ;
+    kg:idPattern "^problem:\\d{2}-[a-z0-9-]+/[a-z0-9-]+$" .
+
+kg:Topic a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Topic" ;
+    rdfs:comment "One of the 35 topics of the catalog's TAXONOMY.md; a SKOS concept in the topic scheme." ;
+    kg:idPattern "^topic:\\d{2}-[a-z0-9-]+$" .
+
+kg:Paper a owl:Class ;
+    rdfs:label "Paper" ;
+    rdfs:subClassOf fabio:ScholarlyWork ;
+    rdfs:seeAlso schema:ScholarlyArticle ;
+    rdfs:comment "A publication cited by at least one problem. arXiv ids may be new style (2406.11779) or old style (cs/0112017)." ;
+    kg:idPattern "^paper:(arxiv:(\\d{4}\\.\\d{4,5}|[a-z-]+(\\.[A-Z]{2})?/\\d{7})|doi:10\\.\\d{4,9}/\\S+|t:[0-9a-f]+)$" .
+
+kg:Person a owl:Class ;
+    rdfs:label "Person" ;
+    rdfs:subClassOf foaf:Agent ;
+    rdfs:seeAlso schema:Person ;
+    rdfs:comment "An author as written in a reference; not resolved to a real-world identity in v1. A foaf:Agent, not a schema:Person, because 19 are collectives such as 'Llama Team' (name_form = collective)." ;
+    kg:idPattern "^person:[^\\W_][\\w]*$" ;
+    rdfs:comment "Ids keep letters of every script (person:vilém_zouhar), lower-cased, with underscores between words." .
+
+kg:Venue a owl:Class ;
+    rdfs:label "Venue" ;
+    rdfs:comment "Where a paper appeared: conference, journal, workshop, preprint server or report series. Similar to schema:Periodical (journals) and schema:EventSeries (conferences), but one class covers both, so neither is a superclass." ;
+    rdfs:seeAlso schema:Periodical, schema:EventSeries ;
+    kg:idPattern "^venue:[^\\W_][\\w]*$" .
+
+kg:Institution a owl:Class ;
+    rdfs:label "Institution" ;
+    rdfs:subClassOf foaf:Organization ;
+    rdfs:seeAlso schema:Organization ;
+    rdfs:comment "A lab, company or university named in a problem's Current Research section." ;
+    kg:idPattern "^institution:[a-z0-9_]+$" .
+
+kg:Assumption a owl:Class ;
+    rdfs:label "Assumption" ;
+    rdfs:comment "An assumption one problem rests on (problem-specific)." ;
+    kg:idPattern "^problem:\\S+#assumption-\\d+$" .
+
+kg:OpenQuestion a owl:Class ;
+    rdfs:label "OpenQuestion" ;
+    rdfs:comment "One gap in what is known about one problem, with its kind." ;
+    kg:idPattern "^problem:\\S+#gap-\\d+$" .
+
+kg:Obstruction a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Obstruction" ;
+    rdfs:comment "A type of reason a problem is hard; a SKOS concept in the obstruction scheme." ;
+    kg:idPattern "^obstruction:[a-z_]+$" .
+
+kg:FutureDirection a owl:Class ;
+    rdfs:label "FutureDirection" ;
+    rdfs:comment "The concrete next experiment proposed for one problem." ;
+    kg:idPattern "^problem:\\S+#next-experiment$" .
+
+kg:DataSource a owl:Class ;
+    rdfs:subClassOf dcat:Dataset ;
+    rdfs:label "DataSource" ;
+    rdfs:comment "A source the graph is built from, pinned to a version." ;
+    kg:idPattern "^datasource:[a-z_]+$" .
+
+# --------------------------------------------------------------------------- #
+# Relationships (edge types)
+# --------------------------------------------------------------------------- #
+kg:IN_TOPIC a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:Topic ;
+    rdfs:subPropertyOf dcterms:subject ;
+    kg:minCount 1 ; kg:maxCount 1 ; kg:inverseMinCount 1 ;
+    rdfs:comment "Each problem belongs to exactly one topic; every topic has problems." .
+
+kg:CITES a owl:ObjectProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:Paper ;
+    rdfs:subPropertyOf cito:cites ;
+    kg:inverseMinCount 1 ;
+    rdfs:comment "The problem cites the paper as evidence. CITES.role refines it into a CiTO property (vocab/concepts.yaml cites_role)." .
+
+kg:AUTHORED_BY a owl:ObjectProperty ;
+    rdfs:domain kg:Paper ; rdfs:range kg:Person ;
+    rdfs:subPropertyOf dcterms:creator ;
+    kg:inverseMinCount 1 ;
+    rdfs:comment "Authorship, with position (1 = first author)." .
+
+kg:APPEARED_AT a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain kg:Paper ; rdfs:range kg:Venue ;
+    rdfs:subPropertyOf dcterms:isPartOf ;
+    kg:maxCount 1 ; kg:inverseMinCount 1 ;
+    rdfs:comment "Where the paper appeared; absent when the reference names no venue." .
+
+kg:RESTS_ON a owl:ObjectProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:Assumption ;
+    kg:inverseMinCount 1 ; kg:inverseMaxCount 1 ;
+    rdfs:comment "The problem depends on this assumption. Each assumption belongs to one problem." .
+
+kg:HAS_GAP a owl:ObjectProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:OpenQuestion ;
+    kg:inverseMinCount 1 ; kg:inverseMaxCount 1 ;
+    rdfs:comment "A classified unknown of the problem. Each open question belongs to one problem." .
+
+kg:BLOCKED_BY a owl:ObjectProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:Obstruction ;
+    kg:minCount 1 ;
+    rdfs:comment "Why the problem is hard; every problem has at least one (other if none matched), exactly one with kg:is_primary = true." .
+
+kg:HAS_NEXT_EXPERIMENT a owl:ObjectProperty, owl:FunctionalProperty, owl:InverseFunctionalProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:FutureDirection ;
+    kg:maxCount 1 ; kg:inverseMinCount 1 ; kg:inverseMaxCount 1 ;
+    rdfs:comment "What to run next." .
+
+kg:ACTIVE_ON a owl:ObjectProperty ;
+    rdfs:domain kg:Institution ; rdfs:range kg:Problem ;
+    kg:minCount 1 ;
+    rdfs:comment "A lab named as currently working on the problem; direction = the Current Research bullet." .
+
+kg:RELATED_TO a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:Problem ;
+    rdfs:subPropertyOf dcterms:relation ;
+    kg:computed true ;
+    rdfs:comment "Computed similarity (method, score on the edge); stored once per pair, from the smaller id to the larger." .
+
+kg:FROM_SOURCE a owl:ObjectProperty ;
+    rdfs:domain kg:Problem ; rdfs:range kg:DataSource ;
+    rdfs:subPropertyOf prov:wasDerivedFrom ;
+    kg:minCount 1 ; kg:maxCount 1 ;
+    rdfs:comment "Provenance link from each problem to the pinned catalog." .
+
+# --------------------------------------------------------------------------- #
+# Properties (only those with a rule worth checking; the full list is docs/ontology.md)
+# --------------------------------------------------------------------------- #
+kg:id a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ;
+    rdfs:comment "Stable, unique across the whole graph, minted from a natural key." .
+kg:source a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ;
+    rdfs:subPropertyOf dcterms:source ; rdfs:comment "Name of the DataSource (ai_research)." .
+kg:provenance a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:required true ; kg:codeList "provenance" .
+kg:method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:codeList "extraction_method" ;
+    kg:required true ; kg:notRequiredOn kg:DataSource ;
+    rdfs:comment "The PROV-O activity that produced the node. Required on every node except DataSource (the rule the checker reads is kg:required + kg:notRequiredOn)." .
+kg:source_url a owl:DatatypeProperty ; rdfs:range xsd:anyURI ;
+    rdfs:seeAlso prov:hadPrimarySource ;
+    rdfs:comment "The exact file at the pinned commit the node was read from: the locator of the node's prov:hadPrimarySource. Stored as a literal, so it is not declared a sub-property of that object property." .
+
+kg:status a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:string ; kg:required true ; kg:codeList "problem_status" .
+kg:catalog_provenance a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:string ; kg:required true ; kg:codeList "catalog_provenance" .
+kg:first_added a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:gYearMonth ; kg:required true .
+kg:last_reviewed a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:gYearMonth ; kg:required true .
+kg:last_substantive_update a owl:DatatypeProperty ; rdfs:domain kg:Problem ; rdfs:range xsd:gYearMonth ; kg:required true .
+kg:number a owl:DatatypeProperty ; rdfs:domain kg:Topic ; rdfs:range xsd:integer ; kg:required true ;
+    rdfs:subPropertyOf skos:notation ; rdfs:comment "Topic number 1-35: stable identity, never reused." .
+kg:arxiv_id a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ;
+    rdfs:comment "arXiv identifier: new style YYMM.NNNNN (4 digits after the dot before 2015, 5 from 2015) or old style archive/YYMMNNN (before April 2007)." .
+kg:doi a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:string ; rdfs:subPropertyOf schema:identifier .
+kg:year a owl:DatatypeProperty ; rdfs:domain kg:Paper ; rdfs:range xsd:gYear .
+kg:name_form a owl:DatatypeProperty ; rdfs:domain kg:Person ; rdfs:range xsd:string ; kg:required true ; kg:codeList "name_form" .
+kg:kind_institution a owl:DatatypeProperty ; rdfs:domain kg:Institution ; rdfs:range xsd:string ; kg:required true ; kg:codeList "institution_kind" ;
+    kg:propertyName "kind" ; rdfs:label "Institution kind" .
+kg:violated a owl:DatatypeProperty ; rdfs:domain kg:Assumption ; rdfs:range xsd:string ; kg:required true ; kg:codeList "assumption_status" .
+kg:kind_gap a owl:DatatypeProperty ; rdfs:domain kg:OpenQuestion ; rdfs:range xsd:string ; kg:required true ; kg:codeList "gap_kind" ;
+    kg:propertyName "kind" ; rdfs:label "Open-question kind" .
+kg:compute_budget_gpu_hours a owl:DatatypeProperty ; rdfs:domain kg:FutureDirection ; rdfs:range xsd:decimal .
+kg:version a owl:DatatypeProperty ; rdfs:domain kg:DataSource ; rdfs:range xsd:string ; kg:required true ;
+    rdfs:subPropertyOf dcat:version ; rdfs:comment "Pinned git commit (40 hex characters)." .
+
+kg:role a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:onEdge true ; kg:codeList "cites_role" ;
+    rdfs:comment "On CITES." .
+kg:relatedness_method a owl:DatatypeProperty ; rdfs:range xsd:string ; kg:onEdge true ; kg:codeList "relatedness_method" ;
+    kg:propertyName "method" ; rdfs:label "Relatedness method" ; rdfs:comment "On RELATED_TO: how the link was computed." .
+kg:score a owl:DatatypeProperty ; rdfs:range xsd:decimal ; kg:onEdge true ;
+    rdfs:comment "On RELATED_TO: similarity in (0, 1] (Jaccard of shared papers for method shared_papers); checked by C9." .
+kg:is_primary a owl:DatatypeProperty ; rdfs:range xsd:boolean ; kg:onEdge true ;
+    rdfs:comment "On BLOCKED_BY: true on exactly one obstruction per problem (checked by O6)." .
