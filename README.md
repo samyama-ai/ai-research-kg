@@ -1,5 +1,7 @@
 # AI Research Knowledge Graph
 
+> **Licence gate:** `ai_research` has no licence file. Do not publish a source snapshot until the source licence is confirmed.
+
 **{{N}} nodes. {{M}} edges. {{ONE_LINE_SCOPE}} from {{K}} sources.**
 
 ![AI Research demo](demo/ai_research.gif)
