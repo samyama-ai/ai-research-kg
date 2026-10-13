@@ -1,11 +1,11 @@
 # Dataset Card — AI Research KG
 
 ## Summary
-A knowledge graph of 1,000 open problems in AI and machine learning: 28,974 nodes and 62,178 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
+A knowledge graph of 1,000 open problems in AI and machine learning: 29,707 nodes and 62,842 edges, built from the `ai_research` catalog. Sibling of the DBMS Research KG.
 
 | | |
 |---|---|
-| Version | **v1**, first built 2026-10-07 (28,960 nodes); rebuilt 2026-10-12 after review with the counts above |
+| Version | **v1.1**, first built 2026-10-09 (29,696 nodes); rebuilt 2026-10-12 after review with the counts above. v1 (2026-10-07) had 28,960 nodes / 62,178 edges |
 | Built from | `ai_research` commit `a02e87b368016fd9568ba5ae8561ea601a8dee41` (catalog dated 2026-09-10) with the parser in this repository (`etl/build.py`) |
 | Engine | Samyama Graph 1.11.0 (`ghcr.io/samyama-ai/samyama-graph@sha256:fc9a7405…`, see README) |
 | Code licence | Apache 2.0 (`LICENSE`) |
@@ -46,5 +46,5 @@ That is the only source: no external APIs, no LLM extraction, no synthetic data.
 - **Methods:** not extracted in v1.
 - **Institutions:** only the 52 names on the list are found (51 occur); others are missed.
 - **Experiment budgets:** `compute_budget_gpu_hours` is parsed for 361 of 1,000 experiments, from text like "~200 A100-hours"; the rest are empty, never guessed.
-- **Provenance dates:** nodes carry no `retrieved_at` in v1 (added in v1.1).
+- **Provenance dates:** every node carries `retrieved_at` (when the pinned catalog was fetched) and `source_date` (the pinned commit's date); edges carry no provenance of their own.
 - **One source file** has sections 9 and 10 swapped; the parser finds sections by name, so it's handled.

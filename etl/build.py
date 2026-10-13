@@ -27,6 +27,7 @@ from etl.helpers import short_hash, slug
 from etl.parse import (
     INSTITUTION_BY_ID,
     OBSTRUCTIONS,
+    PREPRINT_VENUES,
     classify_obstructions,
     first_paragraphs,
     name_form,
@@ -118,6 +119,48 @@ def _collect_references(root: Path) -> tuple[dict[Path, str], dict[str, list[dic
     return texts, raw_refs, keys
 
 
+def catalog_dates(root: Path, commit: str) -> tuple[str | None, str | None]:
+    """(retrieved_at, source_date), both YYYY-MM-DD, read from the lock file next to the catalog
+    (`lock_path(root)`, i.e. `<root>.lock.json`, the one place that layout is defined), which
+    etl/download_data.py writes when it fetches the catalog
+    and keeps while the checkout stays at that commit. So the dates are the recorded fetch and the
+    commit's own date, the same on every rebuild of the same checkout. No lock for this commit
+    (for example the test fixture) gives None for both: the properties are then left off the
+    nodes (never a placeholder string, which would break their xsd:date range), and conformance
+    check S4 fails."""
+    from etl.download_data import lock_path, read_lock
+
+    lock = read_lock(lock_path(root))
+    if not lock or lock.get("commit") != commit:
+        return None, None
+    retrieved_at = str(lock.get("fetched_at") or "")[:10] or None
+    source_date = str(lock.get("commit_date") or "")[:10] or None
+    return retrieved_at, source_date
+
+
+def choose_venues(raw_refs: dict[str, list[dict]], keys: PaperKeys,
+                  ) -> tuple[dict[str, tuple[str, list[str]]], dict[tuple[str, str], tuple[str | None, str]]]:
+    """One venue per paper over all its citations: a named venue beats a preprint server, then the
+    most frequent, then the first seen. Returns paper id -> (venue, every other venue the catalog
+    gives, preprint servers included) and, for each (paper, venue) pair, the raw venue text and
+    the page (raw_refs key) it was first read from, so the Venue node's provenance names a page
+    that really carries that venue."""
+    seen: dict[str, list[str]] = defaultdict(list)
+    first_seen: dict[tuple[str, str], tuple[str | None, str]] = {}
+    for page, refs in raw_refs.items():
+        for r in refs:
+            if r["venue"]:
+                ppid = paper_id(r, keys)
+                seen[ppid].append(r["venue"])
+                first_seen.setdefault((ppid, r["venue"]), (r["venue_raw"], page))
+    chosen: dict[str, tuple[str, list[str]]] = {}
+    for ppid, names in seen.items():
+        counts = Counter(names)
+        ranked = sorted(dict.fromkeys(names), key=lambda v: (v in PREPRINT_VENUES, -counts[v]))
+        chosen[ppid] = (ranked[0], ranked[1:])
+    return chosen, first_seen
+
+
 def title_key(r: dict) -> str:
     """The normalised title, or, when it is blank or too short to mean anything, the authors,
     year and venue text, so that different untitled references do not merge into one paper."""
@@ -167,10 +210,14 @@ def add_related_to(g: Graph, problem_papers: dict[str, set[str]], top_k: int, mi
 def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_shared: int = 2) -> Graph:
     g = Graph()
     base_url = f"{REPO_WEB}/blob/{commit}"
+    # provenance dates: when the pinned catalog was fetched, and the date of that version
+    retrieved_at, source_date = catalog_dates(root, commit)
     common = {"provenance": "real", "source": SOURCE}
+    if retrieved_at and source_date:        # absent, not a placeholder, when the catalog has no recorded fetch
+        common.update(retrieved_at=retrieved_at, source_date=source_date)
 
     g.add_node("DataSource", "datasource:ai_research", name="ai_research catalog",
-               url=REPO_WEB, version=commit, licence=LICENCE_NOTE, provenance="real", source=SOURCE)
+               url=REPO_WEB, version=commit, licence=LICENCE_NOTE, **common)
 
     topic_ids = {}
     for t in parse_taxonomy(root):
@@ -180,6 +227,8 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
                    scope=t["scope"], source_url=f"{base_url}/TAXONOMY.md", method="parsed", **common)
 
     texts, raw_refs, keys = _collect_references(root)
+    paper_venue, venue_first_seen = choose_venues(raw_refs, keys)
+    page_url = {str(path): f"{base_url}/{path.relative_to(root).as_posix()}" for path in texts}
     problem_papers: dict[str, set[str]] = {}
     problem_file: dict[str, Path] = {}
 
@@ -211,8 +260,12 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
         for pos, r in enumerate(raw_refs[str(path)], start=1):
             ppid = paper_id(r, keys)
             papers_here.add(ppid)
+            venue, variants = paper_venue.get(ppid, (None, []))
+            venue_raw, venue_page = venue_first_seen.get((ppid, venue), (None, None))
             g.add_node("Paper", ppid, title=r["title"], year=r["year"], arxiv_id=r["arxiv_id"],
-                       doi=r["doi"], venue=r["venue"], venue_raw=r["venue_raw"],
+                       doi=r["doi"], venue=venue,
+                       venue_raw=venue_raw,                  # None when no venue was chosen: residue is not a venue
+                       venue_variants=variants or None,      # a list: one entry per other venue the catalog gives
                        authors_raw=r["authors_raw"], method="parsed",
                        source_url=src_url, **common)
             g.add_edge("Problem", pid, "CITES", "Paper", ppid,
@@ -222,10 +275,10 @@ def build_graph(root: Path, commit: str, related_top_k: int = 5, related_min_sha
                                     name_form=name_form(name), method="parsed",
                                     source_url=src_url, **common)
                 g.add_edge("Paper", ppid, "AUTHORED_BY", "Person", person, {"position": apos})
-            if r["venue"]:
-                vid = f"venue:{slug(r['venue'])}"
-                g.add_node("Venue", vid, name=r["venue"], method="parsed",
-                           source_url=src_url, **common)
+            if venue:
+                vid = f"venue:{slug(venue)}"
+                g.add_node("Venue", vid, name=venue, method="parsed",
+                           source_url=page_url[venue_page], **common)   # the page that names this venue
                 g.add_edge("Paper", ppid, "APPEARED_AT", "Venue", vid)
         problem_papers[pid] = papers_here
 

@@ -1,6 +1,6 @@
 # AI Research Knowledge Graph
 
-**28,974 nodes. 62,178 edges.** 1,000 open problems in AI and machine learning, with the papers, people, labs, assumptions, gaps and next experiments around them, from 1 source.
+**29,707 nodes. 62,842 edges.** 1,000 open problems in AI and machine learning, with the papers, people, labs, assumptions, gaps and next experiments around them, from 1 source.
 
 > Part of the **Samyama** ecosystem: loaded into and queried with [samyama-graph](https://github.com/samyama-ai/samyama-graph). Sibling of the **DBMS Research KG** (`samyama-graph/case_studies/dbms-research`), built the same way from the sibling catalog.
 
@@ -37,15 +37,15 @@ And why problems stay open, which the catalog names in "Why It Is Hard":
 | Compute cost | 137 |
 | Evaluation does not measure what it names | 104 |
 
-All numbers come from the build of 2026-10-12 (`python -m etl.build`, catalog commit `a02e87b3`; `tests/test_invariants.py` pins them). The first load, on 2026-10-07 into engine 1.11.0, had 28,960 nodes before the review fixes (sister journals of Nature and Science, non-ASCII author names, the US AI Safety Institute, assumption lists). `benchmarks/queries.py` reproduces the two tables (AR15, AR08).
+All numbers come from the v1.1 build of 2026-10-12 (`python -m etl.build`, catalog commit `a02e87b3`; `tests/test_invariants.py` pins them, and the engine load of the same day matched them). `benchmarks/queries.py` reproduces the two tables (AR15, AR08).
 
 ---
 
 ## Schema
 
-**Node labels** (11): Problem 1,000 · Topic 35 · Paper 4,932 · Person 15,102 · Venue 561 · Institution 51 · Assumption 2,496 · OpenQuestion 3,790 · Obstruction 6 · FutureDirection 1,000 · DataSource 1
+**Node labels** (11): Problem 1,000 · Topic 35 · Paper 4,932 · Person 15,102 · Venue 527 · Institution 51 · Assumption 3,263 · OpenQuestion 3,790 · Obstruction 6 · FutureDirection 1,000 · DataSource 1
 
-**Edge types** (11): `IN_TOPIC` 1,000 · `CITES` 12,615 {role, role_raw, position} · `AUTHORED_BY` 28,757 {position} · `APPEARED_AT` 4,468 · `RESTS_ON` 2,496 {position} · `HAS_GAP` 3,790 {position} (`kind` is on the OpenQuestion) · `BLOCKED_BY` 1,448 {detail, is_primary} · `HAS_NEXT_EXPERIMENT` 1,000 · `ACTIVE_ON` 2,476 {direction} · `RELATED_TO` 3,128 {method, shared_papers, score} (computed from shared papers) · `FROM_SOURCE` 1,000
+**Edge types** (11): `IN_TOPIC` 1,000 · `CITES` 12,615 {role, role_raw, position} · `AUTHORED_BY` 28,757 {position} · `APPEARED_AT` 4,365 · `RESTS_ON` 3,263 {position} · `HAS_GAP` 3,790 {position} (`kind` is on the OpenQuestion) · `BLOCKED_BY` 1,448 {detail, is_primary} · `HAS_NEXT_EXPERIMENT` 1,000 · `ACTIVE_ON` 2,476 {direction} · `RELATED_TO` 3,128 {method, shared_papers, score} (computed from shared papers) · `FROM_SOURCE` 1,000
 
 **Data source**: `github.com/samyama-ai/ai_research` only, pinned at commit `a02e87b3`. There are no external lookups and no LLM extraction; every node is parsed from the catalog's Markdown.
 
@@ -71,8 +71,25 @@ python -m benchmarks.queries                        # the scope.md questions, 35
 python -m etl.conformance --url http://127.0.0.1:8090   # taxonomy/ontology/coding/standards checks
 pytest                                              # parser, invariant, count, query-catalog and standards tests
 
-# optional: portable snapshot, same format as dbms-research.sgsnap (snapshots/ is git-ignored)
-mkdir -p snapshots && curl -X POST -o snapshots/ai-research.sgsnap http://127.0.0.1:8090/api/snapshot/export
+# snapshot: export the loaded graph + write snapshots/manifest.json (counts, SHA-256, commit)
+python -m etl.snapshot export --url http://127.0.0.1:8090
+```
+
+### Or skip the build: load the snapshot
+
+The built graph is shared **inside the team** as `ai-research.sgsnap` (3.5 MB), outside git like
+the other KGs' snapshots; it is not published, because the source states no licence yet (S8 in
+`docs/conformance.md`, issue #6). Ask the maintainers for it; where it will be hosted is being
+decided in issue #6.
+`snapshots/manifest.json` records its SHA-256 and counts. Put the file in `snapshots/` and import
+it into a **fresh** server (import appends, so `etl.snapshot import` refuses a non-empty one and
+checks every count against the manifest afterwards):
+
+```bash
+docker run -d --name samyama-ai_research-snap -p 8092:8080 \
+  ghcr.io/samyama-ai/samyama-graph@sha256:fc9a74053554f0be76fdc3973bbc2e5ff05cbb767aa27953ce184e9503206bd4 \
+  samyama --host 0.0.0.0 --cors-origin https://graph.samyama.cloud
+python -m etl.snapshot import --url http://127.0.0.1:8092
 ```
 
 `python -m etl.build` builds the graph without an engine and writes `data/graph.json`.
@@ -87,6 +104,7 @@ etl/build.py           # catalog walk -> Graph (ids, paper dedup, computed RELAT
 etl/loader.py          # schema + batched load + count verification
 etl/helpers.py         # Cypher literals, identifier checks, batched CREATE
 etl/conformance.py     # checks the graph against taxonomy, ontology, code lists, standards (etl/conformance_lib.py: inputs, report)
+etl/snapshot.py        # export/import the .sgsnap, write and check snapshots/manifest.json
 etl/count_kg.py        # Phase 1 size estimate (kept for reference)
 schema/                # Cypher schema (indexes)
 ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)

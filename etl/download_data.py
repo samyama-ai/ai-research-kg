@@ -7,8 +7,10 @@ Re-runnable: same command, same files. The commit is pinned so a rebuild gives
 the same graph. The script refuses to continue when the checkout is not the
 requested commit, when `data/ai_research` is not a clone of REPO_URL, or when
 the working tree has local changes (they would silently change the graph).
-Each run records what it did in `data/ai_research.lock.json` (repo, commit,
-commit date, fetch time), which the loader and docs can cite.
+A fetch records what it did in `data/ai_research.lock.json` (repo, commit,
+commit date, fetch time). The lock is kept as long as the checkout stays at
+the same commit, so `retrieved_at` in the graph (read from it by etl/build.py)
+is the real fetch date and a rebuild from the same checkout gives the same value.
 """
 from __future__ import annotations
 
@@ -22,7 +24,14 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 REPO_URL = "https://github.com/samyama-ai/ai_research.git"
 PINNED_COMMIT = "a02e87b368016fd9568ba5ae8561ea601a8dee41"  # 2026-09-10, 1,000 problems
 CATALOG_DIR = DATA_DIR / "ai_research"
-LOCK_PATH = DATA_DIR / "ai_research.lock.json"
+
+
+def lock_path(root: Path = CATALOG_DIR) -> Path:
+    """The lock file that records the fetch of the catalog checkout at `root`: next to it, `<name>.lock.json`."""
+    return root.with_name(root.name + ".lock.json")
+
+
+LOCK_PATH = lock_path(CATALOG_DIR)
 
 
 class CatalogError(RuntimeError):
@@ -32,6 +41,16 @@ class CatalogError(RuntimeError):
 def _git(*args: str, cwd: Path | None = None) -> str:
     return subprocess.run(["git", *args], cwd=cwd, check=True,
                           capture_output=True, text=True).stdout.strip()
+
+
+def read_lock(path: Path = LOCK_PATH) -> dict | None:
+    """The recorded fetch (repo, commit, commit_date, fetched_at), or None when there is none."""
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def catalog_commit(root: Path = CATALOG_DIR) -> str:
@@ -66,15 +85,17 @@ def download_all(commit: str = PINNED_COMMIT) -> Path:
         _git("fetch", "--quiet", "origin", cwd=CATALOG_DIR)
         _git("checkout", "--quiet", "--detach", commit, cwd=CATALOG_DIR)
     head = check_catalog(CATALOG_DIR, commit)
-    lock = {
-        "repo": REPO_URL,
-        "commit": head,
-        "commit_date": _git("show", "-s", "--format=%cI", head, cwd=CATALOG_DIR),
-        "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "problem_files": len(list((CATALOG_DIR / "topics").glob("*/*.md"))),
-    }
-    LOCK_PATH.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
-    print(f"[download] {REPO_URL} @ {head[:12]} ({lock['commit_date'][:10]}) -> {CATALOG_DIR}; lock: {LOCK_PATH.name}")
+    lock = read_lock()
+    if not lock or lock.get("commit") != head:   # a new fetch: record it; otherwise keep the recorded fetch time
+        lock = {
+            "repo": REPO_URL,
+            "commit": head,
+            "commit_date": _git("show", "-s", "--format=%cI", head, cwd=CATALOG_DIR),
+            "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            "problem_files": len(list((CATALOG_DIR / "topics").glob("*/*.md"))),
+        }
+        LOCK_PATH.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
+    print(f"[download] {REPO_URL} @ {head[:12]} ({lock['commit_date'][:10]}, fetched {lock['fetched_at'][:10]}) -> {CATALOG_DIR}")
     return CATALOG_DIR
 
 
