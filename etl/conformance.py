@@ -27,24 +27,11 @@ from pathlib import Path
 import click
 
 from etl.conformance_lib import (  # noqa: F401  (re-exported for tests and callers)
-    Check, Report, codes, edges_by_type, label_of, load_ontology, load_vocab,
+    TRACKED_FAILURES, TRACKED_OPEN, Check, Report, codes, edges_by_type, label_of, load_ontology, load_vocab,
 )
 from etl.download_data import CATALOG_DIR, PINNED_COMMIT
 from etl.parse import Graph, build_graph, parse_taxonomy, problem_files, split_sections
 
-# Rules the graph breaks today, and where each fix is tracked. The test suite
-# (tests/test_standards.py) expects exactly these failures, so fixing one means removing it here.
-TRACKED_FAILURES = {
-    "O4": "88 papers have two APPEARED_AT venues → fixed in the v1.1 rebuild (PR #5): one venue per paper, "
-          "the catalog's other venue kept in Paper.venue_variants",
-    "C1": "one Venue id is `venue:` (a venue named `(`) → fixed in v1.1 (PR #5)",
-    "S4": "no node carries retrieved_at → fixed in v1.1 (PR #5): retrieved_at and source_date on every node",
-}
-# Open points that are not rule failures but need a decision; tracked in issue #6.
-TRACKED_OPEN = {
-    "S8": "ai_research states no licence, so DataSource.licence says 'none stated' → waiting on the lead "
-          "(issue #6; CC BY 4.0 proposed as dbms_research). Blocks publishing a snapshot, not building",
-}
 
 
 # --------------------------------------------------------------------------- #
@@ -251,6 +238,7 @@ ARXIV_NEW_RE = re.compile(r"^(\d{2})(\d{2})\.(\d{4,5})$")                  # 240
 ARXIV_OLD_RE = re.compile(r"^[a-z-]+(?:\.[A-Z]{2})?/(\d{2})(\d{2})\d{3}$")   # cs/0112017, math.GT/0309136
 DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
 YM_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+YMD_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
 
 def arxiv_year_month(arxiv_id: str) -> tuple[int, int] | None:
@@ -374,12 +362,10 @@ def check_coding(r: Report, g: Graph, onto: dict, vocab: dict) -> None:
     short = sum(1 for p in persons.values() if p["name_form"] in ("initials", "surname"))
     r.add(S, "C12", "Person identity: share of names that are initials or surname only (no DBLP/ORCID id in v1)", [],
           f"{short:,} of {len(persons):,} ({short / len(persons):.0%})", info=True)
-    paper_venues = defaultdict(list)
-    for e in edges_by_type(g)["APPEARED_AT"]:
-        paper_venues[e[1]].append(venues[e[4]]["name"])
-    pairs = Counter(" vs ".join(sorted(v)) for v in paper_venues.values() if len(v) > 1)
-    r.add(S, "C13", "Papers given two venues by different citations (alias gap, arXiv vs venue, or the catalog disagreeing)",
-          [f"{p} ({n})" for p, n in pairs.most_common()], f"{sum(pairs.values())} papers", info=True, limit=8)
+    variants = Counter(f"{p.get('venue')} vs {'; '.join(p['venue_variants'])}" for p in g.nodes["Paper"].values()
+                       if p.get("venue_variants"))
+    r.add(S, "C13", "Papers the catalog gives other venues for (kept in Paper.venue_variants; APPEARED_AT holds the chosen one)",
+          [f"{p} ({n})" for p, n in variants.most_common()], f"{sum(variants.values())} papers", info=True, limit=8)
 
 
 # --------------------------------------------------------------------------- #
@@ -397,9 +383,12 @@ def check_standards(r: Report, g: Graph) -> None:
           [f"{l}: {n}" for l, n in no_url.items() if l not in ("Institution", "Obstruction", "DataSource")],
           "pass; shared nodes (" + ", ".join(f"{l} {n}" for l, n in sorted(no_url.items()))
           + ") have no single page, by design")
-    r.add(S, "S4", "PROV-O: `retrieved_at` (prov:generatedAtTime) on every node, as docs/schema.md §4 requires",
-          sorted({l for l, nodes in g.nodes.items() for n in nodes.values() if not n.get("retrieved_at")}),
-          f"absent on all {sum(len(v) for v in g.nodes.values()):,} nodes")
+    undated = [l for l, nodes in g.nodes.items() for n in nodes.values()
+               if not (YMD_RE.match(str(n.get("retrieved_at", ""))) and YMD_RE.match(str(n.get("source_date", ""))))]
+    total = sum(len(v) for v in g.nodes.values())
+    r.add(S, "S4", "PROV-O dates on every node, as docs/schema.md §4 requires: `retrieved_at` (the recorded fetch, "
+          "data/ai_research.lock.json) and `source_date` (the catalog version's date), real YYYY-MM-DD dates ('unknown' fails)",
+          sorted(set(undated)), f"{total - len(undated):,} of {total:,} nodes carry both")
     r.add(S, "S5", "Edges carry provenance (docs/schema.md §4: 'every node and edge'); today only the problem page at the edge's source implies it",
           sorted({e[2] for e in g.edges if not (e[5] or {}).get("source")}),
           "no edge carries `source`", info=True)
@@ -451,8 +440,9 @@ def report_header(r: Report, commit: str, nodes: int, edges: int, url: str | Non
         f"{sum(1 for c in r.checks if c.ok is None)} measurements.**"
         + ("" if url else " The engine was not compared in this run (add `--url`)."),
         "",
-        "**Tracked:** every failing rule, and every open point, with where its fix lives "
-        "(tests/test_standards.py expects exactly these failures):",
+        ("**Tracked:** every failing rule, and every open point, with where its fix lives "
+         "(tests/test_standards.py expects exactly these failures):" if TRACKED_FAILURES else
+         "**Tracked:** no rule fails. Open points, and where each is followed up:"),
         "",
     ]
     lines += [f"- ❌ {cid} — {note}" for cid, note in TRACKED_FAILURES.items()]

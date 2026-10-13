@@ -1,21 +1,23 @@
-# AI Research KG — Schema (v1, as built)
+# AI Research KG — Schema (v1.1, as built)
 
 The graph as `etl/build.py` builds it and `etl/loader.py` loads it: 11 node labels, 11 edge
-types, 28,974 nodes and 62,178 edges from the `ai_research` catalog at commit `a02e87b3`
-(built 2026-10-12; `tests/test_invariants.py` pins the counts; the first build of 2026-10-07 had
-28,960 nodes before the review fixes).
+types, 29,707 nodes and 62,842 edges from the `ai_research` catalog at commit `a02e87b3`
+(v1.1, 2026-10-09; counts re-measured 2026-10-12; `tests/test_invariants.py` pins them). v1
+as first built (2026-10-07) had 28,960 nodes and 62,178 edges; v1 as rebuilt on 2026-10-12 after
+review has 28,974 nodes and the same 62,178 edges (the review fixes added nodes, not edges). §7
+says what v1.1 changed.
 The Phase 1 design this grew out of is kept in [schema-v0.1-plan.md](schema-v0.1-plan.md);
 §7 lists what was planned and not built. The standards, code lists and ontology file are in
 [standards.md](standards.md).
 
 | | |
 |---|---|
-| Version | v1 (2026-10-07) |
+| Version | v1.1 (2026-10-09) |
 | Graph model | labelled property graph, openCypher (Samyama Graph 1.11.0) |
 | Node labels | 11 |
 | Edge types | 11, one computed (`RELATED_TO`) and one bookkeeping (`FROM_SOURCE`) |
 | Source | `github.com/samyama-ai/ai_research` only, pinned at `a02e87b3` (`etl/download_data.py`); no external lookups, no LLM extraction |
-| Provenance | `provenance`, `source`, `method` on every node; `source_url` on every node read from one page (§4) |
+| Provenance | `provenance`, `source`, `method`, `retrieved_at`, `source_date` on every node; `source_url` on every node read from one page (§4) |
 | Loaded schema | [`schema/ai_research_kg.cypher`](../schema/ai_research_kg.cypher): `id` index per label plus the filter indexes the queries use |
 | Sibling KG | DBMS Research KG (`samyama-graph/case_studies/dbms-research`): same edge names where the meaning is the same |
 
@@ -39,17 +41,17 @@ says what to run next. Properties in `{braces}` after an edge name sit on the ed
 
 ## 2. Node labels (11)
 
-Every node also carries the provenance fields of §4. Counts are for the v1 graph.
+Every node also carries the provenance fields of §4. Counts are for the v1.1 graph.
 
 | Label | Count | One node per | Properties (beyond §4) | Read from |
 |---|---:|---|---|---|
 | `Problem` | 1,000 | catalog page | `title`, `slug`, `status`, `topic`, `first_added`, `last_reviewed`, `last_substantive_update`, `stale_since`, `catalog_provenance`, `statement` (opening paragraphs) | frontmatter + "Problem Statement" |
 | `Topic` | 35 | TAXONOMY.md row | `number` (1–35, stable), `name`, `slug`, `scope` | `TAXONOMY.md` |
-| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` and `venue_raw` (of the first citation read; see the `APPEARED_AT` row), `authors_raw` | "Key References" |
-| `Person` | 15,102 | author string as written | `name`, `name_form` (full / initials / surname / collective) | author lists in "Key References" |
-| `Venue` | 561 | normalised venue name | `name` | venue text of each reference, through the alias list in `etl/rules.py` (sister journals such as Nature Machine Intelligence are their own venues) |
+| `Paper` | 4,932 | cited work, deduplicated | `title`, `year`, `arxiv_id`, `doi`, `venue` (one per paper: a named venue beats a preprint server, then the most frequent), `venue_raw`, `venue_variants` (list of every other venue the catalog gives for the paper, preprint servers included), `authors_raw` | "Key References" |
+| `Person` | 15,102 | author string as written (ids keep letters of every script) | `name`, `name_form` (full / initials / surname / collective) | author lists in "Key References" |
+| `Venue` | 527 | normalised venue name | `name` | venue text of each reference, through the alias list in `etl/rules.py` (sister journals such as Nature Machine Intelligence are their own venues) |
 | `Institution` | 51 | lab on the fixed list that occurs | `name`, `kind` (industry / academic / non-profit / government) | "Current Research", matched against 52 names (`etl/rules.py: INSTITUTIONS`; MIRI never occurs) |
-| `Assumption` | 2,496 | item of the "Assumptions" list of one problem (the list ends at the next bold heading) | `name`, `text`, `violated` (violated / partly / holds / unstated) | "Formal Setting" |
+| `Assumption` | 3,263 | one assumption of one problem (list, table, inline (i)/(ii) or prose form) | `name`, `text`, `violated` (violated / partly / holds / unstated) | "Formal Setting" |
 | `OpenQuestion` | 3,790 | labelled item of one problem's "What Is Not Known" | `kind` (theoretically_open / empirically_open / methodologically_blocked / unclassified), `kind_raw`, `is_primary`, `text` | "What Is Not Known" |
 | `Obstruction` | 6 | obstruction type | `name` | "Why It Is Hard", keyword-mapped to the 5 types in the catalog's TEMPLATE.md + `other` |
 | `FutureDirection` | 1,000 | problem's "Concrete Next Experiment" | `text`, `question`, `scale`, `control_arm`, `deciding_number`, `compute_budget_gpu_hours`, `single_machine` | "Concrete Next Experiment" |
@@ -68,8 +70,8 @@ Uniqueness across the whole graph is checked in `tests/test_invariants.py`; the 
 | `IN_TOPIC` | Problem → Topic | 1,000 | — | exactly one per problem |
 | `CITES` | Problem → Paper | 12,615 | `role` (7 buckets, §5), `role_raw` (the catalog's tag), `position` | the problem cites the paper as evidence |
 | `AUTHORED_BY` | Paper → Person | 28,757 | `position` (1 = first author) | authorship as written |
-| `APPEARED_AT` | Paper → Venue | 4,468 | — | one edge per distinct venue a citation gives; 87 papers are cited with two venues and so have two edges, while `Paper.venue` holds the first (conformance check O4; v1.1 in PR #5 chooses one venue per paper) |
-| `RESTS_ON` | Problem → Assumption | 2,496 | `position` | the problem depends on the assumption |
+| `APPEARED_AT` | Paper → Venue | 4,365 | — | where the paper appeared: exactly one per paper that names a venue |
+| `RESTS_ON` | Problem → Assumption | 3,263 | `position` | the problem depends on the assumption |
 | `HAS_GAP` | Problem → OpenQuestion | 3,790 | `position` | a classified unknown of the problem |
 | `BLOCKED_BY` | Problem → Obstruction | 1,448 | `detail` (the problem's own bold phrase), `is_primary` (exactly one true per problem) | why the problem is hard |
 | `HAS_NEXT_EXPERIMENT` | Problem → FutureDirection | 1,000 | — | what to run next |
@@ -85,14 +87,15 @@ Uniqueness across the whole graph is checked in `tests/test_invariants.py`; the 
 |---|---|---|
 | `provenance` | `real` (the Samyama build-guide flag: parsed from a real source, not synthetic) | every node |
 | `source` | `ai_research` | every node |
-| `method` | `parsed` (28,916 nodes), `keyword-classified` (the 6 Obstruction nodes), `name-matched` (the 51 Institution nodes) | every node except DataSource |
+| `method` | `parsed` (29,649 nodes), `keyword-classified` (the 6 Obstruction nodes), `name-matched` (the 51 Institution nodes) | every node except DataSource |
+| `retrieved_at` | `2026-10-07`: the date the pinned catalog was fetched, from `data/ai_research.lock.json` (written by `etl/download_data.py` at fetch time, kept while the checkout stays at that commit) | every node |
+| `source_date` | `2026-09-10`: the date of the pinned commit | every node |
 | `source_url` | `https://github.com/samyama-ai/ai_research/blob/<commit>/<file>` | every node read from one page (not Institution, Obstruction, DataSource, which are shared) |
 | `catalog_provenance` | the catalog's own frontmatter flag on its prose: `synthesized` for all 1,000 | Problem |
 | `DataSource.version` | the pinned commit, 40 hex | DataSource |
 
-Not in v1: `retrieved_at` on nodes, and provenance on edges (an edge's provenance is the problem
-page at its source end). Both are listed as gaps in [standards.md](standards.md) and `retrieved_at`
-is added in the v1.1 rebuild.
+Edges carry no provenance of their own: an edge's provenance is the problem page at its source
+end (listed as a known limit in [standards.md](standards.md)).
 
 ## 5. Code lists
 
@@ -131,9 +134,11 @@ One node per label and one edge per type; the real problem has 12 `CITES`, 4 `RE
   -[:FROM_SOURCE]->           (:DataSource {id: "datasource:ai_research", version: "a02e87b3…"})
 ```
 
-## 7. Planned in v0.1, not built in v1
+Every node in the path above also carries `retrieved_at: "2026-10-07"` and `source_date: "2026-09-10"` (§4); they are left out of the listing for space.
 
-| v0.1 plan ([schema-v0.1-plan.md](schema-v0.1-plan.md)) | v1 | Why |
+## 7. Planned in v0.1, not built in v1 or v1.1
+
+| v0.1 plan ([schema-v0.1-plan.md](schema-v0.1-plan.md)) | Built (v1 and v1.1) | Why |
 |---|---|---|
 | `Method` node, `STATE_OF_ART`, `MENTIONS`, `INTRODUCED_IN` | not built | the bold text in "State of the Art" is evidence labels ("Established", "Claimed but unablated"), not method names; needs an LLM or an outside source |
 | `AssumptionClass` + `INSTANCE_OF` | not built | needs curation; Q34 is answered approximately by grouping `Assumption.name` (query AR27) |
@@ -141,7 +146,7 @@ One node per label and one edge per type; the real problem has 12 `CITES`, 4 `RE
 | Person resolution via arXiv | names kept as written, with `name_form` | no external lookups in v1 |
 | 9-type obstruction list | the catalog's own 5 types + `other` | the catalog already uses that vocabulary |
 | `Problem.embedding`, vector indexes | not built | needs an embedding model |
-| `retrieved_at`, provenance on edges | not built | added for nodes in v1.1 |
+| provenance on edges | not built | an edge's provenance is its source problem page; `retrieved_at` and `source_date` were added to nodes in v1.1 |
 | `method` values `parsed / resolved / llm-extracted / computed` | `parsed / keyword-classified / name-matched` | these name what the parser actually does; `RELATED_TO` carries its own `method` |
 | 16 edge types, 12 node types | 11 and 11 | the rows above |
 

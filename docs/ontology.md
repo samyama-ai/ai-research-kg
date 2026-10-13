@@ -5,7 +5,7 @@ The machine-readable version is [`ontology/ai_research_kg.ttl`](../ontology/ai_r
 (OWL/RDFS in Turtle). `etl/conformance.py` reads that file and checks the graph against it;
 the result is in [conformance.md](conformance.md), checks O1–O10.
 
-v0.1.1, 2026-10-12 (first written 2026-10-09). It describes the v1 graph as built (11 labels, 11 edge types), not the larger
+v0.2.1, 2026-10-12 (v0.2 2026-10-09). It describes the v1.1 graph as built (11 labels, 11 edge types), not the larger
 v0.1 design in docs/schema.md.
 
 ## Why a separate ontology file
@@ -31,9 +31,9 @@ ontology in `docs/schema.md` and `schema/template_kg.cypher`, and lists "an OWL 
 | `Topic` | One of the 35 topics of TAXONOMY.md | 35 | subclass of `skos:Concept` | `topic:NN-slug` |
 | `Paper` | A cited publication | 4,932 | subclass of `fabio:ScholarlyWork`; see also `schema:ScholarlyArticle` | `paper:arxiv:…` (new or old style) / `paper:doi:…` / `paper:t:<hash>` |
 | `Person` | An author, as written in the reference | 15,102 | subclass of `foaf:Agent` (19 are collectives such as "Llama Team"); see also `schema:Person` | `person:<slug, letters of any script>` |
-| `Venue` | Where a paper appeared | 561 | see also `schema:Periodical`, `schema:EventSeries` (one class covers both, so neither is a superclass) | `venue:<slug>` |
+| `Venue` | Where a paper appeared | 527 | see also `schema:Periodical`, `schema:EventSeries` (one class covers both, so neither is a superclass) | `venue:<slug>` |
 | `Institution` | A lab named in Current Research | 51 | subclass of `foaf:Organization`; see also `schema:Organization` | `institution:<key>` |
-| `Assumption` | An assumption one problem rests on | 2,496 | (ours) | `<problem id>#assumption-N` |
+| `Assumption` | An assumption one problem rests on | 3,263 | (ours) | `<problem id>#assumption-N` |
 | `OpenQuestion` | One gap in what is known, with its kind | 3,790 | (ours) | `<problem id>#gap-N` |
 | `Obstruction` | A type of reason a problem is hard | 6 | subclass of `skos:Concept` | `obstruction:<code>` |
 | `FutureDirection` | The concrete next experiment | 1,000 | (ours) | `<problem id>#next-experiment` |
@@ -54,8 +54,8 @@ ontology has assumptions, open questions or next experiments, so those three cla
 | `IN_TOPIC` | Problem → Topic | exactly 1 per problem; ≥ 1 per topic | `dcterms:subject` | 1,000 |
 | `CITES {role, role_raw, position}` | Problem → Paper | ≥ 1 per paper | `cito:cites`; `role` refines it (below) | 12,615 |
 | `AUTHORED_BY {position}` | Paper → Person | ≥ 1 per person | `dcterms:creator` | 28,757 |
-| `APPEARED_AT` | Paper → Venue | at most 1 per paper; ≥ 1 per venue | `dcterms:isPartOf` | 4,468 |
-| `RESTS_ON {position}` | Problem → Assumption | exactly 1 problem per assumption | (ours) | 2,496 |
+| `APPEARED_AT` | Paper → Venue | at most 1 per paper; ≥ 1 per venue | `dcterms:isPartOf` | 4,365 |
+| `RESTS_ON {position}` | Problem → Assumption | exactly 1 problem per assumption | (ours) | 3,263 |
 | `HAS_GAP {position}` | Problem → OpenQuestion | exactly 1 problem per question | (ours) | 3,790 |
 | `BLOCKED_BY {detail, is_primary}` | Problem → Obstruction | ≥ 1 per problem; exactly 1 primary | (ours) | 1,448 |
 | `HAS_NEXT_EXPERIMENT` | Problem → FutureDirection | at most 1 per problem; exactly 1 per direction | (ours) | 1,000 |
@@ -85,9 +85,15 @@ The catalog's own 669 free-text tags are kept in `role_raw`.
 
 ## Properties and code lists
 
-Every node carries `id`, `source`, `provenance` and (all but `DataSource`) `method`. Nodes read
-from one page also carry `source_url` at the pinned commit (`prov:hadPrimarySource`). Properties
-whose values come from a fixed list point to their scheme in
+Every node carries `id`, `source`, `provenance`, `retrieved_at` and `source_date`; all of them
+are required (kg:required; checks O5 and S4). `retrieved_at` is the date the pinned catalog was
+fetched and `source_date` the date of that catalog version, both read from
+`data/ai_research.lock.json`, which the download step writes. When no fetch is recorded the build
+leaves the two dates off and S4 fails, so a graph never carries a placeholder date. Every node but
+`DataSource` also carries `method`, and nodes read from one page carry `source_url` at the pinned
+commit (`prov:hadPrimarySource`). A `Paper` also carries `venue_variants`: a list of every other
+venue the catalog gives for it, preprint servers included, while `APPEARED_AT` holds the chosen
+one. Properties whose values come from a fixed list point to their scheme in
 [`vocab/concepts.yaml`](../vocab/concepts.yaml):
 
 | Property | Code list | Values |
@@ -119,25 +125,27 @@ with `rdfs:seeAlso`, not declared a sub-property of that object property.
 | Check | Rule | Result |
 |---|---|---|
 | O1, O2 | Labels and edge types = classes and properties | ✅ 11 = 11, 11 = 11 |
-| O3 | Every edge goes from domain to range | ✅ 62,178 edges |
-| O4 | Cardinalities | ❌ **88 papers have 2 venues** (`APPEARED_AT` max 1). Every other cardinality holds |
+| O3 | Every edge goes from domain to range | ✅ 62,842 edges |
+| O4 | Cardinalities | ✅ (v1 failed: 88 papers had 2 venues, counted on the v1 graph as rebuilt on 2026-10-12; the first v1 build had 87) |
 | O5 | Required properties present | ✅ |
 | O6 | Exactly one primary obstruction per problem | ✅ |
 | O7 | `RELATED_TO` stored once per pair | ✅ |
 | O8 | No orphan nodes | ✅ |
-| O9 | Assumptions are extracted where the page states them | ℹ️ **405 problems have no `Assumption`; 190 of them do state assumptions** in a bold heading the parser misses (an inline `(i) … (ii) …` list, not bullets) |
+| O9 | Assumptions are extracted where the page states them | ℹ️ 220 problems have no `Assumption`; 6 of them state assumptions only in unheaded numbered lists (v1: 405 and 190) |
 | O10 | Every problem has open questions | ℹ️ 8 problems have none |
 
-**What fixes the two real gaps:**
+**Fixed in v1.1:**
 
-- **O4:** choose one venue per paper. Prefer a real venue over `arXiv` and resolve aliases
-  (`NSDI` = `USENIX NSDI`, `CACM` = `Communications of the ACM`, `IJCV`). Report the 8 ICLR/ICML
-  and 2 ICML/NeurIPS disagreements to `ai_research`, since the catalog contradicts itself there.
-- **O9:** teach `parse_assumptions` the inline `(i)`/`(ii)` form. That would add assumptions to
-  up to 189 problems.
+- **O4:** one venue per paper. A named venue beats `arXiv`, then the most cited, then the first
+  seen; new aliases (`NSDI`, `FAST`, `CACM`, `IJCV`, `TPAMI`). The catalog's other venues for 77
+  papers (preprint servers included) are kept in `Paper.venue_variants` as a list; the ICLR/ICML
+  contradictions should go to
+  `ai_research`.
+- **O9:** `parse_assumptions` reads all four forms the catalog uses: a list, a table, an inline
+  `(i)`/`(ii)` list, and prose items `Name: *status* — why`.
 
-Both change the built graph, so they are fixed in the v1.1 rebuild (PR #5), tracked at the top of
-[conformance.md](conformance.md), not in this ontology change.
+Both changed the built graph, so they were done in the v1.1 rebuild (PR #5), with the failing checks
+tracked at the top of [conformance.md](conformance.md) until then.
 
 ## Followed, not imported
 

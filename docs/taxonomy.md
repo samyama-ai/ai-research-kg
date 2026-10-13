@@ -131,7 +131,7 @@ conformance C9):
 | Citation role (7) | `context` is the catch-all, with 1,911 citations (15%). Benchmark (268) and Evaluation (116) alone are 384 of them (raw tags listed under C9) | Add `benchmark` (→ CiTO `usesDataFrom`); drafted as `proposed` |
 | Open-question kind (3 + unclassified) | 41 of 3,790 unclassified; 18 of those say just "Open" (raw labels under C9) | Keep `unclassified`: guessing a kind would invent data |
 | Obstruction (5 + other) | Keyword-classified. `confounded_measurement` (521) and `non_identifiability` (458) dominate; `other` is 20 (`BLOCKED_BY` counts under C9) | Review a sample of 50 by hand before trusting the split |
-| Venue (none) | 561 venues; 358 with one paper; 47 are parser residue (`(`, `Workshop paper /`); 88 papers get two venues (ICLR vs ICML 8 times, NSDI vs USENIX NSDI) | A `venue_kind` code list (drafted) and a canonical venue list, keyed to DBLP stream ids later |
+| Venue (none) | 527 venues; 339 with one paper; 24 still look like residue. v1.1 gives each paper one venue; 77 papers keep the catalog's other venues in `venue_variants` (10 of them only arXiv; 18 conference contradictions, ICLR vs ICML 8 times) | A `venue_kind` code list (drafted) and a canonical venue list, keyed to DBLP stream ids later |
 
 ### R7. Crosswalks (later, need external lookups)
 

@@ -35,6 +35,7 @@ from etl.rules import (  # noqa: F401  (re-exported: tests and vocab checks read
     INSTITUTION_BY_ID,
     INSTITUTIONS,
     OBSTRUCTIONS,
+    PREPRINT_VENUES,
     ROLE_RULES,
     SECTION_KEYS,
     SINGLE_MACHINE_GPU_HOURS,
@@ -73,13 +74,15 @@ def role_bucket(tag: str) -> str:
 
 
 def normalise_venue(raw: str) -> str | None:
-    raw = raw.strip(" .,;—-")
-    if not raw:
-        return None
+    raw = raw.strip(" .,;:—–-/(")
+    if raw.count(")") > raw.count("("):        # a ")" left without its "(" is residue; "(industry track)" is handled below
+        raw = raw.rstrip(")")
     low = raw.lower()
-    for canonical, pat in VENUE_ALIASES:
+    for canonical, pat in VENUE_ALIASES:      # aliases first, so "S&P" is a venue although it has no two letters in a row
         if re.search(pat, low):
             return canonical
+    if not re.search(r"[A-Za-z]{2}", raw) or re.match(r"identifier omitted", raw, re.I):
+        return None  # parser residue such as "(" is not a venue
     raw = re.sub(r"\s*\((?:[^)]*)\)\s*$", "", raw).strip(" .,")
     raw = re.sub(r"\s+\d+(?:\s*\(\d+\))?$", "", raw).strip(" .,")  # "CACM 52" -> "CACM"
     return raw or None
@@ -164,16 +167,34 @@ def classify_gap(head: str) -> str:
     return "unclassified"
 
 
-# Verdict words, with negation respected: "not violated" is not a violation and "no longer
-# holds" / "rarely holds" are not confirmations.
+# Verdict words. Negation is respected ("not violated" is not a violation, "no longer holds" and
+# "rarely holds" are not confirmations), and "false" is a verdict but "false positives",
+# "false-positive rate", "false alarms" and "false discovery" are not.
 _NEG = r"(?<!\bnot )(?<!\bnever )(?<!\brarely )(?<!\bseldom )(?<!longer )"
-VIOLATED_RE = re.compile(_NEG + r"\bviolated\b|" + _NEG + r"\bfails?\b|\bdoes not hold\b|\bno longer holds\b|\brarely holds\b|\bnever holds\b|" + _NEG + r"\bbroken\b", re.I)
+_NOT_A_VERDICT = r"(?![\s-]+(?:positives?|alarms?|discover\w*|negatives?)\b)"
+# "false" as a verdict, in the forms the catalog writes it: after a dash or colon, at a sentence
+# start, after a verb or a hedge ("is false", "known false", "mostly false", "and false"), or
+# qualified ("false for rare words", "false in general", "false at scale").
+_FALSE_VERDICT = (
+    r"(?:—|–|:)\s*false\b" + _NOT_A_VERDICT
+    + r"|(?:^|[.;]\s+)false\b" + _NOT_A_VERDICT
+    + r"|,\s*false\b" + _NOT_A_VERDICT
+    + r"|\b(?:is|are|was|were|be|become|proves?|proven|turns? out|and|then|known|often|mostly|usually|generally|always|almost|"
+    r"clearly|simply|plainly|vacuously|approximately|empirically|demonstrably|likely|probably|largely|strictly|weakly|badly|"
+    r"numerically|nominally|surely|partially|partly|half|frequently|typically|routinely|rarely)\s+false\b" + _NOT_A_VERDICT
+    + r"|\bfalse\s+(?:for|in|at|under|when|beyond|here|on|once|above|below|across|per|after|outside|without)\b"
+)
+VIOLATED_RE = re.compile(
+    _NEG + r"\bviolated\b|" + _NEG + r"\bfails?\b|\bdoes not hold\b|\bno longer holds\b|\brarely holds\b|\bnever holds\b|"
+    + _NEG + r"\bbroken\b|" + _FALSE_VERDICT, re.I)
 PARTLY_RE = re.compile(r"\bpartly\b|\bpartially\b|\bapproximately\b|\bweakly\b|\bsometimes\b|\bmostly\b", re.I)
 HOLDS_RE = re.compile(_NEG + r"\bholds\b|\bnot violated\b|\bnever violated\b|\breasonable\b|\bsafe\b", re.I)
+# a mixed verdict: "true for X …, false/violated/… for Y" in one sentence (the contrast word must follow)
+MIXED_RE = re.compile(r"\btrue (?:for|when|in|under)\b[^.]*\b(?:but|false|violated|fails?|except|unless|otherwise)\b", re.I)
 
 
 def assumption_status(text: str) -> str:
-    if PARTLY_RE.search(text) and VIOLATED_RE.search(text):
+    if (PARTLY_RE.search(text) or MIXED_RE.search(text)) and VIOLATED_RE.search(text):
         return "partly"
     if VIOLATED_RE.search(text):
         return "violated"
@@ -182,25 +203,131 @@ def assumption_status(text: str) -> str:
     return "unstated"
 
 
+# Two shapes count as a heading: bold starting with "Assumption(s)" that ends in ":" or "."
+# (inside or right after the bold; it may sit mid-paragraph, as on many pages), or such bold
+# alone on its line (optionally as a list item). A bold *sentence* about assumptions is not a
+# heading: headings are short (the longest in the catalog has 8 words, "Assumptions, with the
+# ones known to be violated flagged"), so a match with more than HEADING_MAX_WORDS is skipped.
+ASSUMPTION_HEAD_RE = re.compile(
+    r"\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?(?:[:.]\*\*|\*\*[:.])"
+    r"|^[ \t]*(?:[-*]\s+)?\*\*(?:(?:further|other|key|the)\s+)?assumptions?\b[^*\n]{0,80}?\*\*[ \t]*$",
+    re.I | re.M)
+HEADING_MAX_WORDS = 10
+
+# An enumeration on the heading line: "(i) … (ii) …", "(1) … (2) …", "(a) … (b) …".
+INLINE_ENUM_RE = re.compile(r"(?:^|\s)\((?:i{1,3}|iv|vi{0,3}|ix|x|\d{1,2}|[a-h])\)\s+")
+# Text right before a marker that makes it a reference, not an item: "Eq. (1)", "see (2)".
+EQUATION_REF_RE = re.compile(r"\b(?:eqs?\.?|equations?|see|cf\.?)\s*$", re.I)
+# The first clause of a plain list item, used as its name: up to a dash, a colon or a sentence end.
+NAME_CLAUSE_RE = re.compile(r"\s[—–]\s|:\s|(?<=[^.\s])\.\s+(?=[A-Z*])")
+
+
+def _inline_enumeration(inline: str) -> list[str]:
+    """The items of an enumeration written on the heading line, "(i) … (ii) …", or [] when the
+    line is not one. The line must start with a marker, or carry at least two markers after a
+    short introduction; every item must have some text of its own (three words or more), and no
+    marker may be an equation or figure reference ("Eq. (1) and (2)")."""
+    markers = list(INLINE_ENUM_RE.finditer(inline))
+    if not markers or not (markers[0].start() == 0 or len(markers) >= 2):
+        return []
+    if any(EQUATION_REF_RE.search(inline[: m.start()]) for m in markers):
+        return []
+    items = [p.strip() for p in INLINE_ENUM_RE.split(inline)[1:] if p.strip()]
+    if len(items) < len(markers) or any(len(strip_md(item).split()) < 3 for item in items):
+        return []
+    return items
+
+
+def _list_after_intro(block: str) -> int | None:
+    """Offset of the list in `block`: 0 when it starts with a list item, further in when at most
+    two introductory lines precede the first item, None when there is no list."""
+    offset = 0
+    for i, line in enumerate(block.splitlines(keepends=True)):
+        if LIST_START_RE.match(line) and not line.lstrip().startswith("|"):
+            return offset if i <= 2 else None
+        offset += len(line)
+    return None
+
+
+def _dedent_list(block: str) -> str:
+    """Remove the indentation of the first list line from every line, and no more, so that an
+    indented list reads as a list while its sub-bullets stay indented (continuations, not items)."""
+    first = next((l for l in block.splitlines() if l.strip()), "")
+    indent = first[: len(first) - len(first.lstrip())]
+    return "\n".join(l[len(indent):] if l.startswith(indent) else l for l in block.splitlines())
+
+
+def _table_rows(block: str) -> list[str]:
+    """The data rows of a Markdown table: everything after the header separator (`|---|`); a
+    table without a separator has no header, so all its rows are data."""
+    rows = [r.strip() for r in block.lstrip().splitlines() if r.strip().startswith("|")]
+    separator = next((i for i, r in enumerate(rows) if re.fullmatch(r"\|(?:\s*:?-{2,}:?\s*\|)+", r)), None)
+    return rows[separator + 1:] if separator is not None else rows
+PROSE_ITEM_RE = re.compile(r"(?<=[.;])\s+(?=[A-Z$*][^.:;]{2,100}:\s*\*)")
+LIST_START_RE = re.compile(r"^\s*(?:(?:-|\*|\d+\.)\s+\S|\|\s*\S)")   # a list item (marker, space, text) or table row; "**bold**" is not a bullet
+
+
+def _clause_name(text: str) -> str:
+    """The first clause of an item written without a lead-in ("$C$ is corpus-stable — violated: …"
+    names itself "$C$ is corpus-stable"). The clause must be 2–20 words and contain letters;
+    otherwise the first eight words stand in."""
+    clause = NAME_CLAUSE_RE.split(text, 1)[0].strip(" .,;:")
+    words = clause.split()
+    if 2 <= len(words) <= 20 and re.search(r"[A-Za-z]{2}", clause):
+        return clause
+    return " ".join(text.split()[:8])
+
+
+def _assumption(item: str, split_name: bool = False) -> dict:
+    """One assumption. The name is the italic or bold lead-in when there is one; with `split_name`
+    (table rows and prose items, written "Name: status — why") the text before the first colon or
+    dash; otherwise the first clause of the item (see `_clause_name`)."""
+    nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
+        re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item) or \
+        (split_name and re.match(r"([^:—]{2,100}?)\s*(?::|—|–| - )\s*(.*)", item))
+    text = strip_md(item)
+    name = strip_md(nm.group(1)) if nm else _clause_name(text)
+    return {"name": name[:160], "text": text[:1200], "violated": assumption_status(text)}
+
+
+def _first_block(text: str) -> str:
+    """The lines under a heading up to its first real break: a blank line is skipped when the next
+    non-empty line is a list item or table row (LIST_START_RE) or starts with whitespace; any other
+    blank line ends the block."""
+    lines = text.lstrip("\n").splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            nxt = next((l for l in lines[i + 1:] if l.strip()), "")
+            if not (LIST_START_RE.match(nxt) or nxt.startswith((" ", "\t"))):
+                break
+        out.append(line)
+    return "\n".join(out)
+
+
 def parse_assumptions(formal: str) -> list[dict]:
-    """The list under the bold "Assumptions…" heading of Formal Setting. The list ends at the
-    next bold paragraph heading (a blank line followed by `**…**`), so later lists in the
-    section, such as "Quantities as measured", are not read as assumptions."""
-    m = re.search(r"^.*\*\*Assumptions?[^\n]*\n", formal, re.M | re.I)
+    """The "Assumptions" part of Formal Setting, in the four forms the catalog uses:
+    a list under the heading, a table under it, an inline (i)/(ii) list on the
+    heading line, or prose items "Name: *status* — why."."""
+    m = next((m for m in ASSUMPTION_HEAD_RE.finditer(formal)
+              if len(re.findall(r"[A-Za-z0-9$\\]+", m.group(0))) <= HEADING_MAX_WORDS), None)
     if not m:
         return []
-    tail = formal[m.end():]
-    next_heading = re.search(r"\n[ \t]*\n[ \t]*\*\*[^*\n]{2,80}\*\*", tail)
-    if next_heading:
-        tail = tail[: next_heading.start()]
-    out = []
-    for item in list_items(tail):
-        nm = re.match(r"\*([^*]{2,120}?)[:.]\*\s*[:.]?\s*(.*)", item) or \
-            re.match(r"\*\*([^*]{2,120}?)[:.]?\*\*\s*[:.]?\s*(.*)", item)
-        name = strip_md(nm.group(1)) if nm else " ".join(strip_md(item).split()[:8])
-        text = strip_md(item)
-        out.append({"name": name[:160], "text": text[:1200], "violated": assumption_status(text)})
-    return out
+    line_end = formal.find("\n", m.end())
+    inline = formal[m.end(): line_end if line_end != -1 else None].strip()
+    below = _first_block(formal[line_end:] if line_end != -1 else "")
+    out: list[dict] = []
+    # A table or list under the heading is the content; anything on the heading line is then an
+    # introduction (no page in the catalog has both, so nothing is read twice).
+    if below.lstrip().startswith("|"):
+        out += [_assumption(" — ".join(c.strip() for c in r.strip("|").split("|")), True) for r in _table_rows(below)]
+    elif (list_start := _list_after_intro(below)) is not None:
+        out += [_assumption(i, False) for i in list_items(_dedent_list(below[list_start:]))]
+    elif inline and (items := _inline_enumeration(inline)):   # "(i) … (ii) …" on the heading line
+        out += [_assumption(item, True) for item in items]
+    elif inline:   # prose items "Name: *status* — why."
+        out += [_assumption(p.strip(), True) for p in PROSE_ITEM_RE.split(inline) if p.strip()]
+    return [a for a in out if len(a["text"]) > 3]
 
 
 def parse_gaps(not_known: str) -> list[dict]:
@@ -277,11 +404,11 @@ def problem_files(root: Path) -> list[Path]:
 # Lazy re-exports of the graph builder (etl/build.py imports this module, so a
 # plain import here would be circular).
 # --------------------------------------------------------------------------- #
-_BUILD_NAMES = ("Graph", "build_graph", "main")
+BUILD_EXPORTS = ("Graph", "build_graph", "main", "catalog_dates", "choose_venues")   # re-exported from etl.build
 
 
 def __getattr__(name: str):
-    if name in _BUILD_NAMES:
+    if name in BUILD_EXPORTS:
         from etl import build
         return getattr(build, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

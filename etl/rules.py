@@ -54,6 +54,12 @@ VENUE_ALIASES = [
     ("MLSys", r"\bmlsys\b"), ("OSDI", r"\bosdi\b"), ("SOSP", r"\bsosp\b"),
     ("ASPLOS", r"\basplos\b"), ("ISCA", r"\bisca\b"), ("SC", r"^sc\b|supercomputing"),
     ("Interspeech", r"interspeech"), ("ICASSP", r"\bicassp\b"),
+    ("NSDI", r"\bnsdi\b|networked systems design and implementation"),
+    ("FAST", r"usenix fast|^fast(?:\s*'?\d{2,4})?$|conference on file and storage technologies"),
+    ("USENIX ATC", r"usenix atc|usenix annual technical conference"),
+    ("CACM", r"\bcacm\b|communications of the acm"),
+    ("IJCV", r"\bijcv\b|international journal of computer vision"),
+    ("TPAMI", r"\btpami\b|pattern analysis and machine intelligence"),
     ("CAV", r"\bcav\b"), ("USENIX Security", r"usenix security"),
     ("IEEE S&P", r"s&p|security and privacy"), ("CCS", r"\bccs\b"), ("STOC", r"\bstoc\b"),
     ("FOCS", r"\bfocs\b"), ("SODA", r"\bsoda\b"), ("CHI", r"\bchi\b"),
@@ -66,7 +72,10 @@ VENUE_ALIASES = [
     ("Nature", r"^nature(?:\s+\d+)?$"), ("Science", r"^science(?:\s+\d+)?$"),
     ("PNAS", r"\bpnas\b"), ("Transformer Circuits Thread", r"transformer circuits"),
     ("Distill", r"^distill\b"), ("arXiv", r"^arxiv|arxiv preprint|^preprint"),
+    ("OpenReview", r"openreview"),
 ]
+# Preprint servers: a named venue beats these when a paper is cited with several venues.
+PREPRINT_VENUES = {"arXiv", "OpenReview"}
 
 # The five obstruction types the catalog's TEMPLATE.md names in "Why It Is Hard":
 # code -> (display name, regex). Anything else becomes `other`.
