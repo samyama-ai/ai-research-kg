@@ -51,7 +51,51 @@ All numbers come from the v1.1 build of 2026-10-12 (`python -m etl.build`, catal
 
 See [`schema/ai_research_kg.cypher`](schema/ai_research_kg.cypher), [`docs/schema.md`](docs/schema.md) and [`DATASET_CARD.md`](DATASET_CARD.md).
 
-Standards, coding systems, taxonomies and ontologies in full: **[docs/standards.md](docs/standards.md)**. The ontology as a file: [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl) ([docs/ontology.md](docs/ontology.md)); the code lists: [`vocab/concepts.yaml`](vocab/concepts.yaml); the taxonomy check and refinements: [docs/taxonomy.md](docs/taxonomy.md). Whether the graph keeps all of them is measured by `python -m etl.conformance --url http://127.0.0.1:8090` (report: [docs/conformance.md](docs/conformance.md)).
+## Standards, coding systems, taxonomies and ontologies
+
+The shared language of the graph, in the sense of the Samyama KG guide's Layer 1. Four kinds of
+thing, each with a plain meaning:
+
+| Kind | In plain words | How many here |
+|---|---|---|
+| **Coding system** | a list of codes where each code names exactly one thing | 9 external + 14 own |
+| **Taxonomy** | a list of categories, usually a tree, that things are sorted into | 2 in use, 2 more proposed |
+| **Ontology** | the blueprint: which kinds of things exist and how they may connect | 1 own + 8 followed |
+| **Standard / framework** | a rulebook we obey or reuse as a vocabulary | 5 followed + 1 proposed + 4 later |
+
+**Coding systems.** External: arXiv identifier and DOI for papers (loaded), ISO 8601 for dates
+(loaded), the git commit SHA-1 for the catalog version (loaded), and five planned for when external
+lookups are allowed: DBLP person id, ORCID iD, DBLP stream key for venues, arXiv category, ROR and
+OpenAlex ids. Own: three identifier conventions (topic number and slug, problem id, one id pattern per
+node label) and eleven code lists in [`vocab/concepts.yaml`](vocab/concepts.yaml): `problem_status`,
+`catalog_provenance`, `cites_role`, `gap_kind`, `obstruction`, `assumption_status`, `name_form`,
+`institution_kind`, `extraction_method`, `relatedness_method`, `provenance`. Every coded value in the
+graph is on its list (conformance check C9).
+
+**Taxonomies.** The catalog's 35 research topics (`TAXONOMY.md`, one level; every problem sits in
+exactly one, checks T1–T7) and the catalog's obstruction types (`TEMPLATE.md` §6, five types plus
+`other`). Proposed, not built: six topic areas above the topics and the scope terms below them
+([docs/taxonomy.md](docs/taxonomy.md)).
+
+**Ontologies.** Our own, [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl) (OWL/Turtle,
+explained in [docs/ontology.md](docs/ontology.md)): the 11 node labels and 11 edge types above,
+with domain, range, cardinality, id patterns and code lists, which the conformance tool checks the
+graph against. Followed, meaning our terms are aligned with theirs so other tools understand the
+graph: SKOS (topics and obstructions are concepts), PROV-O (provenance fields), CiTO (citation
+roles), FaBiO (papers), schema.org (papers, people, venues, institutions), FOAF (people and
+organisations), DCAT and Dublin Core (the data source), ORKG (research problems).
+
+**Standards and frameworks.** Followed: the Samyama KG naming conventions, PROV-O provenance on
+every node, computed facts labelled as computed (`RELATED_TO` carries `method` and `score`), a pinned
+source commit so a rebuild gives the same graph, and ISO 8601. Proposed, waiting on the lead:
+CC BY 4.0 as the graph's licence. Recorded for a later Responsible AI extension and not used yet:
+NIST AI RMF, the EU AI Act, ISO/IEC 42001, the OECD AI Principles. Deliberately not used: ACM CCS,
+Semantic Scholar, Papers with Code (shut down in 2025), leaderboards and citation counts.
+
+Everything above in detail, with what the graph holds from each and the measured check ids:
+**[docs/standards.md](docs/standards.md)**. Whether the graph keeps all of these rules is measured by
+`python -m etl.conformance --url http://127.0.0.1:8090` (latest report:
+[docs/conformance.md](docs/conformance.md), 31 pass, 0 fail, 14 measurements).
 
 ## Quick Start
 
@@ -117,7 +161,7 @@ docs/                  # scope, schema (as built) and the v0.1 plan, standards, 
 tests/                 # parser tests on fixtures, full-graph invariants, count, query-catalog and standards tests
 ```
 
-## Known limits (v1)
+## Known limits (v1.1)
 
 - **No Method nodes.** The bold text in "State of the Art" is evidence labels ("Established", "Claimed but unablated"), not method names, so methods can't be extracted without an LLM or an outside source.
 - **People are not resolved.** The catalog writes authors three ways (`Wortsman`, `T. Moerland`, `Rico Sennrich`). As in the DBMS KG, bare surnames are never merged into full names; filter on `name_form = 'full'` for people queries.
