@@ -13,9 +13,9 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 2. How many problems are there in total, and how many are open?
 3. How many problems are in each topic?
 4. Which topics have the largest share of open problems?
-5. Which problems are theoretically open vs empirically open vs methodologically blocked?
+5. Which gaps are theoretically open vs empirically open vs methodologically blocked, and which problems have each kind? (These are classes of the *gaps* in "What Is Not Known"; a problem's own `status` is a separate field, see the note above.)
 6. Which problems are solved but impractical?
-7. Which open problems have a next experiment that fits on a single machine (§8 compute budget)? (The catalog doesn't record who has tried what, so "nobody has tried at scale" can't be answered from it.)
+7. Which problems, whatever their status, have a next experiment that fits on a single machine (§8 compute budget)? (The catalog doesn't record who has tried what, so "nobody has tried at scale" can't be answered from it. Q37 is the same question for open problems only.)
 8. What are the most common reasons these AI problems remain hard?
 
 ## B Understanding an AI Research Problem
@@ -40,6 +40,8 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 23. Which researchers or labs are working on problem X?
 24. Which researchers frequently collaborate on these problems?
 
+Data path in v1: *researchers* are reached through the papers a problem cites (Problem → CITES → Paper → AUTHORED_BY → Person), *labs* through the "Current Research" bullets (Institution → ACTIVE_ON → Problem). There is no Person → Institution link in v1 (AFFILIATED_WITH needs an external lookup), so a researcher cannot be joined to a lab.
+
 ## E Methods
 25. Which methods are state of the art for the most problems?
 26. Which methods appear across multiple AI research topics?
@@ -56,7 +58,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 
 ## G Finding Research Opportunities
 36. Which next experiments are cheapest to run?
-37. Which open problems can be experimentally investigated on a single machine today?
+37. Which *open* problems have a next experiment that fits on a single machine today? (Q7 without the status filter.)
 38. Which topics have the most immediately runnable research experiments?
 39. Which open problems are understudied — no lab active on them and fewer than 3 cited papers?
 
@@ -74,7 +76,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 ## Brief
 - Asked by: Naresh Kolimi (team meeting, 2026-10-05)
 - Users: Samyama team, researchers, and the Responsible AI / Explainable AI work (Berkeley student) that gets merged in later
-- Deadline: TBD (ask)
+- Deadline: none set. Asked at the 2026-10-05 meeting; no date given as of 2026-10-12. The lead decides when v1 is reviewed
 
 ## Entities (nodes)
 - Problem: one per markdown file (id, title, status, provenance, dates, embedding for similarity search)
@@ -86,7 +88,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 - Method / Algorithm: named in "State of the Art"
 - OpenQuestion: each classified gap in "What Is Not Known" (theoretically open / empirically open / methodologically blocked)
 - Obstruction: reasons a problem is hard, from "Why It Is Hard" (e.g. compute, no ground truth, bad measurement)
-- Assumption: assumptions listed in "Formal Setting" (e.g. "features are linear directions"), one per problem
+- Assumption: one node per listed assumption in "Formal Setting" (e.g. "features are linear directions"); each belongs to exactly one problem, and a problem has several
 - AssumptionClass: a curated canonical category that similar assumptions point to (answers Q34 without merging problem-specific wording)
 - FutureDirection: the "Concrete Next Experiment" (with compute_budget, e.g. "200 A100-hours")
 - DataSource: bookkeeping node for the pinned ai_research commit (licence, version, fetched_at)
@@ -96,7 +98,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 - Problem -CITES-> Paper (property role: one of 7 grouped citation roles, or `untagged` when the source has no tag; raw source tag kept)
 - Paper -AUTHORED_BY-> Person
 - Paper -APPEARED_AT-> Venue
-- Person -AFFILIATED_WITH-> Institution
+- Person -AFFILIATED_WITH-> Institution (planned; not in v1, it needs an external lookup)
 - Institution -ACTIVE_ON-> Problem
 - Problem -HAS_GAP-> OpenQuestion
 - Problem -MENTIONS-> Method
@@ -124,7 +126,7 @@ Counts (2026-10-05): open 401, empirically-open 295, partially-solved 189, metho
 
 ## Estimated size (counter rerun 2026-10-12 on commit a02e87b3; script: count_kg.py)
 - Rough planning range: ~28,000–29,000 nodes and ~64,000–65,000 edges (schema.md §11 shows the arithmetic: measured counts plus estimates for the types the counter doesn't produce).
-- Measured by `count_kg.py`: 1,000 problems, 35 topics, 5,004 papers, 11,894 distinct listed author strings, 699 distinct normalised raw venue strings, 45 institutions / 2,057 rule-matched links, 2,492 assumption items, 3,810 §5 list items, 12,878 references (261 without a role tag), and 71.5% of references with an arXiv ID. Author identities and venue names are not resolved, so these are raw-string counts.
+- Measured by `count_kg.py`: 1,000 problems, 35 topics, 5,004 papers, 11,894 distinct listed author strings, 708 distinct normalised raw venue strings, 43 institutions / 1,950 rule-matched links, 2,492 assumption items, 3,810 §5 list items, 12,878 references (261 without a role tag), and 71.5% of references with an arXiv ID. Author identities and venue names are not resolved, so these are raw-string counts.
 - Rough estimates only: ~200 venues after cleanup (same figure as schema.md), 2–3K methods, 8–12 obstruction types. The parser finds references on all 1,000 pages and reports any bullet it can't parse with its file line number; it does not validate that every reference line is semantically correct. `README.md` and `candidates.json` are skipped.
 
-Full schema: see schema.md (v0.1 draft, 2026-10-05).
+Full schema: see schema.md (v1 as built); the Phase 1 plan is schema-v0.1-plan.md (v0.1, 2026-10-05).
