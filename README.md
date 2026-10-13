@@ -9,6 +9,10 @@ Content licence: **to be decided before publishing**: the source states no licen
 
 ---
 
+Find where AI research is open and where it is stuck: which problems share papers, people and
+assumptions, which experiments are cheap to run, and why problems stay hard, every answer traceable
+to the catalog page it came from.
+
 We loaded the [`ai_research`](https://github.com/samyama-ai/ai_research) catalog into one graph, then asked:
 
 > *"Which papers are cited across the most AI research topics?"*
@@ -97,6 +101,14 @@ Everything above in detail, with what the graph holds from each and the measured
 `python -m etl.conformance --url http://127.0.0.1:8090` (latest report:
 [docs/conformance.md](docs/conformance.md), 31 pass, 0 fail, 14 measurements).
 
+## Demo
+
+The 35 scope questions run as Cypher with `python -m benchmarks.queries` (see
+[benchmarks/README.md](benchmarks/README.md)); the two tables above are AR15 and AR08. A recorded
+walkthrough (`demo/demo.py` plus an animated GIF, as in the sibling KGs) is not made yet: it is
+recorded from the final graph once this PR is merged, under issue #6. [demo/README.md](demo/README.md)
+says what the recording will cover.
+
 ## Quick Start
 
 ```bash
@@ -155,11 +167,23 @@ ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
 vocab/                 # controlled vocabularies (concepts.yaml)
 benchmarks/queries.py  # query catalog AR01-AR33, AR90-AR91, with scope.md coverage
 mcp_server/            # MCP server exposing the graph to Claude (from the KG template; not yet adapted)
-demo/                  # recorded demo (from the KG template; not yet recorded for this graph)
+demo/                  # plan for the recorded walkthrough (script and GIF not made yet; see demo/README.md)
 tools/insight_proxy.py # local CORS proxy so Samyama Insight can reach the engine (docs/ENGINE-NOTES.md)
 docs/                  # scope, schema (as built) and the v0.1 plan, standards, ontology, taxonomy, conformance, engine notes, logs
 tests/                 # parser tests on fixtures, full-graph invariants, count, query-catalog and standards tests
 ```
+
+## Docs
+
+- [docs/standards.md](docs/standards.md): every standard, coding system, taxonomy and ontology, and whether the graph keeps it
+- [docs/ontology.md](docs/ontology.md): the ontology in words; the file is [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl)
+- [docs/taxonomy.md](docs/taxonomy.md): how the graph follows the 35 topics, and seven refinements for the lead to decide
+- [docs/conformance.md](docs/conformance.md): the measured report, 31 checks and 14 measurements
+- [docs/schema.md](docs/schema.md): the graph as built; [docs/schema-v0.1-plan.md](docs/schema-v0.1-plan.md): the Phase 1 plan it grew from
+- [docs/scope.md](docs/scope.md): the core question and the 41 questions the graph answers (or refuses)
+- [docs/ENGINE-NOTES.md](docs/ENGINE-NOTES.md): measured engine behaviour
+- [DATASET_CARD.md](DATASET_CARD.md): source, licence, how each part is built, known limits
+- Work logs: [docs/phase1-log.md](docs/phase1-log.md), [docs/phase2-log.md](docs/phase2-log.md), [docs/2026-10-07-log.md](docs/2026-10-07-log.md)
 
 ## Known limits (v1.1)
 
@@ -167,3 +191,9 @@ tests/                 # parser tests on fixtures, full-graph invariants, count,
 - **People are not resolved.** The catalog writes authors three ways (`Wortsman`, `T. Moerland`, `Rico Sennrich`). As in the DBMS KG, bare surnames are never merged into full names; filter on `name_form = 'full'` for people queries.
 - **Institutions** are matched by name against a fixed list of 52 labs and universities in "Current Research" (51 occur in the catalog; MIRI never does).
 - **No embeddings / vector search.** The DBMS KG used OpenAI embeddings; this build uses nothing outside the catalog.
+
+## License
+
+Apache-2.0 for the code: see [LICENSE](LICENSE). The graph's content comes from `ai_research`, which
+states no licence yet; CC BY 4.0 is proposed and no snapshot is published until the owner decides
+(see [docs/standards.md](docs/standards.md) and issue #6).
