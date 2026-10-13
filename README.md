@@ -7,6 +7,8 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/code-Apache_2.0-blue" alt="Code licence"></a>
 Content licence: **to be decided before publishing**: the source states no licence, CC BY 4.0 is proposed (see [`docs/standards.md`](docs/standards.md)).
 
+![AI Research KG demo](demo/ai-research-kg.gif)
+
 ---
 
 Find where AI research is open and where it is stuck: which problems share papers, people and
@@ -103,11 +105,20 @@ Everything above in detail, with what the graph holds from each and the measured
 
 ## Demo
 
-The 35 scope questions run as Cypher with `python -m benchmarks.queries` (see
-[benchmarks/README.md](benchmarks/README.md)); the two tables above are AR15 and AR08. A recorded
-walkthrough (`demo/demo.py` plus an animated GIF, as in the sibling KGs) is not made yet: it is
-recorded from the final graph once this PR is merged, under issue #6. [demo/README.md](demo/README.md)
-says what the recording will cover.
+Ten questions a researcher starts from, answered on the built graph and recorded as the GIF above:
+how open the field is, the most open topics, the papers and surveys the problems share, the labs
+named on open problems, why problems stay hard, the problems closest to one problem, the cheapest
+and the single-machine experiments, and a question the graph must refuse. Every number is read from
+the graph at run time, and each step says what its answer rests on: text parsed from the page, one of
+our fixed rules, a computed link, or no data. See [demo/](demo/README.md).
+
+```bash
+python -m demo.demo --url http://127.0.0.1:8090          # paced walkthrough, one query at a time
+python -m demo.demo --long --url http://127.0.0.1:8090   # the one-screen report the GIF shows
+```
+
+The ten queries, ready to paste into Samyama Insight: [demo/queries.cypher](demo/queries.cypher). All
+35 scope questions run with `python -m benchmarks.queries` ([benchmarks/README.md](benchmarks/README.md)).
 
 ## Quick Start
 
@@ -167,7 +178,7 @@ ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
 vocab/                 # controlled vocabularies (concepts.yaml)
 benchmarks/queries.py  # query catalog AR01-AR33, AR90-AR91, with scope.md coverage
 mcp_server/            # MCP server exposing the graph to Claude (from the KG template; not yet adapted)
-demo/                  # plan for the recorded walkthrough (script and GIF not made yet; see demo/README.md)
+demo/                  # narrated walkthrough (demo.py), its ten queries, the recorder (record.sh) and the GIF
 tools/insight_proxy.py # local CORS proxy so Samyama Insight can reach the engine (docs/ENGINE-NOTES.md)
 docs/                  # scope, schema (as built) and the v0.1 plan, standards, ontology, taxonomy, conformance, engine notes, logs
 tests/                 # parser tests on fixtures, full-graph invariants, count, query-catalog and standards tests
