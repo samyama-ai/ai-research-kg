@@ -1,7 +1,7 @@
 """Local CORS helper so Samyama Insight (https://graph.samyama.cloud) can reach a local engine.
 
-    python tools/insight_proxy.py                       # 127.0.0.1:8091 -> http://127.0.0.1:8090
-    python tools/insight_proxy.py --listen 8091 --upstream http://127.0.0.1:8090
+    python demo/insight_proxy.py                       # 127.0.0.1:8091 -> http://127.0.0.1:8090
+    python demo/insight_proxy.py --listen 8091 --upstream http://127.0.0.1:8090
 
 Why: the engine answers CORS preflights with `Access-Control-Allow-Headers: *`, and
 browsers do not let that wildcard cover the `Authorization` header Insight sends when

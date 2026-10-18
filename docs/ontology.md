@@ -1,7 +1,7 @@
 # Ontology
 
 What kinds of thing the AI Research KG holds, how they relate, and the rules each must keep.
-The machine-readable version is [`ontology/ai_research_kg.ttl`](../ontology/ai_research_kg.ttl)
+The machine-readable version is [`schema/ai_research_kg.ttl`](../schema/ai_research_kg.ttl)
 (OWL/RDFS in Turtle). `etl/conformance.py` reads that file and checks the graph against it;
 the result is in [conformance.md](conformance.md), checks O1–O10.
 
@@ -79,7 +79,7 @@ CiTO (the Citation Typing Ontology, SPAR) names the reasons one work cites anoth
 | `caution` | `cito:critiques` | 306 |
 | `benchmark` *(proposed)* | `cito:usesDataFrom` | — |
 
-These are nearest-term mappings recorded in `vocab/concepts.yaml` (`maps_to`), not formal
+These are nearest-term mappings recorded in `schema/concepts.yaml` (`maps_to`), not formal
 sub-properties: CiTO's properties hold between two works, while `role` is a string on an edge.
 The catalog's own 669 free-text tags are kept in `role_raw`.
 
@@ -94,7 +94,7 @@ leaves the two dates off and S4 fails, so a graph never carries a placeholder da
 commit (`prov:hadPrimarySource`). A `Paper` also carries `venue_variants`: a list of every other
 venue the catalog gives for it, preprint servers included, while `APPEARED_AT` holds the chosen
 one. Properties whose values come from a fixed list point to their scheme in
-[`vocab/concepts.yaml`](../vocab/concepts.yaml):
+[`schema/concepts.yaml`](../schema/concepts.yaml):
 
 | Property | Code list | Values |
 |---|---|---:|

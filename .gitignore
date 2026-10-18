@@ -2,9 +2,12 @@
 __pycache__/
 *.pyc
 data/
+# Stray asciinema recordings stay out, but demo/*.cast is a deliverable.
 *.cast
+!demo/*.cast
 site/
 .DS_Store
 .env
 *.egg-info/
-snapshots/*.sgsnap
+# A .sgsnap and its manifest.json are shared inside the team, outside git.
+/snapshots/

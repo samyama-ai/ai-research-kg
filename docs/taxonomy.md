@@ -56,7 +56,7 @@ is the strongest cross-area pair in the whole graph (T13).
 
 **How to build it:** `TopicArea` nodes (or SKOS concepts in a `topic_area` scheme) with
 `(Topic)-[:BROADER]->(TopicArea)`, the SKOS `broader` pattern the Valuation KG uses. The codes
-are drafted in `vocab/concepts.yaml` (`topic_area`, status `proposed`). **Needs the lead's yes**,
+are drafted in `schema/concepts.yaml` (`topic_area`, status `proposed`). **Needs the lead's yes**,
 because it adds a layer to the catalog's own taxonomy.
 
 ### R2. Add a level below the topics: the scope terms as subtopics
@@ -118,12 +118,12 @@ Proposal: a `Topic.kind` of `area` or `lens`. Small, but it explains query resul
 
 `TEMPLATE.md` lists 5 statuses: `open`, `partially-solved`, `empirically-open`,
 `solved-but-impractical` and `stale`. The data uses `methodologically-blocked` (96 problems),
-which is not in the template, and never uses `stale`. The KG accepts both (`vocab/concepts.yaml`
+which is not in the template, and never uses `stale`. The KG accepts both (`schema/concepts.yaml`
 `problem_status`). Proposal for `ai_research`: add `methodologically-blocked` to `TEMPLATE.md`.
 
 ### R6. Refine the graph's own sub-taxonomies
 
-These are the KG's own classifications (full lists and counts in `vocab/concepts.yaml` and
+These are the KG's own classifications (full lists and counts in `schema/concepts.yaml` and
 conformance C9):
 
 | Vocabulary | Finding | Proposal |

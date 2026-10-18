@@ -3,7 +3,7 @@
 # Each scheme is a closed list of codes that one property may take. The parser
 # (etl/parse.py) produces these codes; etl/conformance.py checks that every value
 # in the graph is on its list; tests/test_standards.py fails if this file and the
-# parser drift apart. Pattern from enterprise-valuation-kg vocab/concepts.yaml
+# parser drift apart. Pattern from enterprise-valuation-kg schema/concepts.yaml
 # (SKOS-style: scheme -> concepts with code, label, definition).
 #
 # `status: in_use` = the graph carries these codes today.

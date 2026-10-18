@@ -70,7 +70,7 @@ Services, not coding systems, so they are not counted above. They supply or veri
 ### Own (14): 3 identifier conventions + 11 code lists
 
 The catalog's identifiers, plus the KG's controlled vocabularies, each a closed list in
-[`vocab/concepts.yaml`](../vocab/concepts.yaml). Every coded value in the graph is on its list,
+[`schema/concepts.yaml`](../schema/concepts.yaml). Every coded value in the graph is on its list,
 97,104 values in all (C9), and every listed code is used (C10).
 
 | Coding system | Codes | Used for | Status |
@@ -112,7 +112,7 @@ Conformance in detail, and the seven refinements: **[taxonomy.md](taxonomy.md)**
 
 ## Ontologies (1 own + 8 followed)
 
-**Our ontology** is [`ontology/ai_research_kg.ttl`](../ontology/ai_research_kg.ttl) (OWL/RDFS:
+**Our ontology** is [`schema/ai_research_kg.ttl`](../schema/ai_research_kg.ttl) (OWL/RDFS:
 11 classes, 11 relationships with domain, range and cardinality, id patterns, code lists,
 required properties and the two edge properties rules use),
 explained in **[ontology.md](ontology.md)**. The conformance tool checks the graph against the
@@ -140,7 +140,7 @@ file. Result: all classes, relationships, domains, ranges and cardinalities matc
 | | | `retrieved_at` (when the pinned catalog was fetched, 2026-10-07) and `source_date` (the date of that version, 2026-09-10) on every node | ✅ all 29,707 nodes (S4). `retrieved_at` is the fetch recorded in `data/ai_research.lock.json`, `source_date` the commit's date, so a rebuild from the same checkout gives the same graph; `unknown` fails S4 |
 | | | provenance on every edge | ℹ️ no edge carries it; implied by the problem page at the edge's source (S5) |
 | **Computed facts are labelled** (Samyama KG guide) | — | `RELATED_TO` carries `method` and `score` | ✅ (S6) |
-| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1: on 2026-10-12 the engine held exactly this build, 29,707 nodes and 62,842 edges, checked with `--url`; `etl/snapshot.py` checks the loaded counts against `snapshots/manifest.json`) |
+| **Pinned source** (Samyama KG guide) | — | `DataSource.version` = the exact commit; a rebuild gives the same graph | ✅ (C8; E1: on 2026-10-12 the engine held exactly this build, 29,707 nodes and 62,842 edges, checked with `--url`; `etl/snapshot.py` checks the loaded counts against the snapshot's `manifest.json`) |
 | **ISO 8601** | ISO | dates | ✅ (C7) |
 | **CC BY 4.0** (as `dbms_research`) | Creative Commons | licence of the graph | ⚠️ proposed; `ai_research` states no licence, so `DataSource.licence` says "none stated" (S8). Blocks publishing only |
 

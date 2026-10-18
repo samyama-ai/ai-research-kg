@@ -73,7 +73,7 @@ thing, each with a plain meaning:
 (loaded), the git commit SHA-1 for the catalog version (loaded), and five planned for when external
 lookups are allowed: DBLP person id, ORCID iD, DBLP stream key for venues, arXiv category, ROR and
 OpenAlex ids. Own: three identifier conventions (topic number and slug, problem id, one id pattern per
-node label) and eleven code lists in [`vocab/concepts.yaml`](vocab/concepts.yaml): `problem_status`,
+node label) and eleven code lists in [`schema/concepts.yaml`](schema/concepts.yaml): `problem_status`,
 `catalog_provenance`, `cites_role`, `gap_kind`, `obstruction`, `assumption_status`, `name_form`,
 `institution_kind`, `extraction_method`, `relatedness_method`, `provenance`. Every coded value in the
 graph is on its list (conformance check C9).
@@ -83,7 +83,7 @@ exactly one, checks T1–T7) and the catalog's obstruction types (`TEMPLATE.md` 
 `other`). Proposed, not built: six topic areas above the topics and the scope terms below them
 ([docs/taxonomy.md](docs/taxonomy.md)).
 
-**Ontologies.** Our own, [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl) (OWL/Turtle,
+**Ontologies.** Our own, [`schema/ai_research_kg.ttl`](schema/ai_research_kg.ttl) (OWL/Turtle,
 explained in [docs/ontology.md](docs/ontology.md)): the 11 node labels and 11 edge types above,
 with domain, range, cardinality, id patterns and code lists, which the conformance tool checks the
 graph against. Followed, meaning our terms are aligned with theirs so other tools understand the
@@ -118,7 +118,8 @@ python -m demo.demo --long --url http://127.0.0.1:8090   # the one-screen report
 ```
 
 The ten queries, ready to paste into Samyama Insight: [demo/queries.cypher](demo/queries.cypher). All
-35 scope questions run with `python -m benchmarks.queries` ([benchmarks/README.md](benchmarks/README.md)).
+35 scope questions run with `python -m benchmarks.run`, each checked against a plain-Python answer
+([benchmarks/README.md](benchmarks/README.md)).
 
 ## Quick Start
 
@@ -134,11 +135,12 @@ docker run -d --name samyama-ai_research -p 8090:8080 \
 
 python -m etl.download_data                         # catalog -> data/ai_research (pinned commit; writes data/ai_research.lock.json)
 python -m etl.loader --url http://127.0.0.1:8090    # parse + load + verify counts (~30 s)
-python -m benchmarks.queries                        # the scope.md questions, 35 queries
+python -m etl.build                                 # the same graph without an engine -> data/graph.json
+python -m benchmarks.run                            # the scope.md questions, 35 queries, each checked
 python -m etl.conformance --url http://127.0.0.1:8090   # taxonomy/ontology/coding/standards checks
 pytest                                              # parser, invariant, count, query-catalog and standards tests
 
-# snapshot: export the loaded graph + write snapshots/manifest.json (counts, SHA-256, commit)
+# snapshot: export the loaded graph + its manifest into snapshots/ (git-ignored)
 python -m etl.snapshot export --url http://127.0.0.1:8090
 ```
 
@@ -148,7 +150,8 @@ The built graph is shared **inside the team** as `ai-research.sgsnap` (3.5 MB), 
 the other KGs' snapshots; it is not published, because the source states no licence yet (S8 in
 `docs/conformance.md`, issue #6). Ask the maintainers for it; where it will be hosted is being
 decided in issue #6.
-`snapshots/manifest.json` records its SHA-256 and counts. Put the file in `snapshots/` and import
+It comes with its `manifest.json`, which records its SHA-256 and counts; `snapshots/` is
+git-ignored, so share the two files together. Put both in `snapshots/` and import
 it into a **fresh** server (import appends, so `etl.snapshot import` refuses a non-empty one and
 checks every count against the manifest afterwards):
 
@@ -171,27 +174,29 @@ etl/build.py           # catalog walk -> Graph (ids, paper dedup, computed RELAT
 etl/loader.py          # schema + batched load + count verification
 etl/helpers.py         # Cypher literals, identifier checks, batched CREATE
 etl/conformance.py     # checks the graph against taxonomy, ontology, code lists, standards (etl/conformance_lib.py: inputs, report)
-etl/snapshot.py        # export/import the .sgsnap, write and check snapshots/manifest.json
+etl/snapshot.py        # export/import the .sgsnap, write and check its manifest.json
 etl/count_kg.py        # Phase 1 size estimate (kept for reference)
-schema/                # Cypher schema (indexes)
-ontology/              # the ontology in OWL/Turtle (ai_research_kg.ttl)
-vocab/                 # controlled vocabularies (concepts.yaml)
+schema/                # Cypher schema (indexes), the ontology in OWL/Turtle (ai_research_kg.ttl),
+                       # the controlled vocabularies (concepts.yaml)
 benchmarks/queries.py  # query catalog AR01-AR33, AR90-AR91, with scope.md coverage
-mcp_server/            # MCP server exposing the graph to Claude (from the KG template; not yet adapted)
-demo/                  # narrated walkthrough (demo.py), its ten queries, the recorder (record.sh) and the GIF
-tools/insight_proxy.py # local CORS proxy so Samyama Insight can reach the engine (docs/ENGINE-NOTES.md)
-docs/                  # scope, schema (as built) and the v0.1 plan, standards, ontology, taxonomy, conformance, engine notes, logs
+benchmarks/reference.py # every query answered again in plain Python, and check()
+benchmarks/run.py      # runs, times and checks the catalog
+mcp_server/            # MCP server exposing the graph to agents (from the KG template; not yet adapted)
+demo/                  # narrated walkthrough (demo.py), its ten queries, the recorder (record.sh), the cast and the GIF
+demo/insight_proxy.py  # local CORS proxy so Samyama Insight can reach the engine (docs/ENGINE-NOTES.md)
+docs/                  # scope, schema (as built) and the v0.1 plan, standards, ontology, taxonomy, coding standards, conformance, engine notes, logs
 tests/                 # parser tests on fixtures, full-graph invariants, count, query-catalog and standards tests
 ```
 
 ## Docs
 
 - [docs/standards.md](docs/standards.md): every standard, coding system, taxonomy and ontology, and whether the graph keeps it
-- [docs/ontology.md](docs/ontology.md): the ontology in words; the file is [`ontology/ai_research_kg.ttl`](ontology/ai_research_kg.ttl)
+- [docs/ontology.md](docs/ontology.md): the ontology in words; the file is [`schema/ai_research_kg.ttl`](schema/ai_research_kg.ttl)
 - [docs/taxonomy.md](docs/taxonomy.md): how the graph follows the 35 topics, and seven refinements for the lead to decide
 - [docs/conformance.md](docs/conformance.md): the measured report, 31 checks and 14 measurements
 - [docs/schema.md](docs/schema.md): the graph as built; [docs/schema-v0.1-plan.md](docs/schema-v0.1-plan.md): the Phase 1 plan it grew from
 - [docs/scope.md](docs/scope.md): the core question and the 41 questions the graph answers (or refuses)
+- [docs/coding-standards.md](docs/coding-standards.md): how code, queries, data and documents are written here
 - [docs/ENGINE-NOTES.md](docs/ENGINE-NOTES.md): measured engine behaviour
 - [DATASET_CARD.md](DATASET_CARD.md): source, licence, how each part is built, known limits
 - Work logs: [docs/phase1-log.md](docs/phase1-log.md), [docs/phase2-log.md](docs/phase2-log.md), [docs/2026-10-07-log.md](docs/2026-10-07-log.md)

@@ -15,8 +15,8 @@ import yaml
 from etl.parse import Graph
 
 ROOT = Path(__file__).resolve().parent.parent
-ONTOLOGY_PATH = ROOT / "ontology" / "ai_research_kg.ttl"
-VOCAB_PATH = ROOT / "vocab" / "concepts.yaml"
+ONTOLOGY_PATH = ROOT / "schema" / "ai_research_kg.ttl"
+VOCAB_PATH = ROOT / "schema" / "concepts.yaml"
 KG = "https://samyama.ai/kg/ai-research/ontology#"
 
 # Rules the graph breaks today, and where each fix is tracked. The test suite

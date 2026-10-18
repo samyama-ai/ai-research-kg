@@ -7,8 +7,8 @@
 WHY. Building the graph needs the catalog checkout (data/, not committed) and about a minute.
 A snapshot is the built graph itself: anyone with a Samyama server can have it in seconds.
 
-A `.sgsnap` is serialised ENGINE STATE, not a build. `snapshots/manifest.json` records the git commit
-that built it, the engine version, the counts per label and relationship, and a SHA-256, so a stale
+A `.sgsnap` is serialised ENGINE STATE, not a build. `snapshots/manifest.json` (git-ignored like
+the .sgsnap: share the two together) records the git commit that built it, the engine version, the counts per label and relationship, and a SHA-256, so a stale
 snapshot is visible. Re-export when the code or data changes. The manifest names the file it
 describes, and `import` refuses a file/manifest pair that does not match.
 
