@@ -1,26 +1,18 @@
 """Query catalog for the AI Research KG -- the docs/scope.md questions as Cypher.
 
-    python -m benchmarks.queries --url http://127.0.0.1:8090          # run all
-    python -m benchmarks.queries --url http://127.0.0.1:8090 --only AR12
-    python -m benchmarks.queries --coverage                           # which scope questions are covered
+The catalog only: each entry has an id, the scope.md question(s) it answers (`scope`, or None for
+a query that is useful but answers no numbered question), the question, and the Cypher. Questions
+the v1 graph cannot answer are listed in UNANSWERED with the reason; tests/test_queries.py checks
+that every question 1-41 is either answered or listed there.
 
-Each entry names the scope.md question(s) it answers (`scope`), or None for a
-query that is useful but answers no numbered question. Questions the v1 graph
-cannot answer are listed in UNANSWERED with the reason; tests/test_queries.py
-checks that every question 1-41 is either answered or listed there.
-
-A run fails when a query errors, when a query returns no rows, or when an
-AR9x query (must return nothing: the graph holds no such data) returns rows.
+    python -m benchmarks.run --url http://127.0.0.1:8090     # run, time and check every query
+    python -m benchmarks.reference                           # the same questions in plain Python
 
 Engine note (from edge-ai-kg): aggregate on a property, `count(x.id)`, not on
 a relationship variable.
 """
 from __future__ import annotations
 
-import sys
-import time
-
-import click
 
 EXAMPLE_PROBLEM = "internals-based-safety-verification"   # the page read in Phase 1
 SCOPE_QUESTIONS = range(1, 42)                            # docs/scope.md numbers 1-41
@@ -158,47 +150,3 @@ def resolve(client, graph: str, cypher: str) -> str:
         author = str(records[0][0]).replace("'", "") if records else ""
         cypher = cypher.replace("{AUTHOR}", author)
     return cypher
-
-
-def run(client, graph: str, q: dict) -> tuple[list, float]:
-    cypher = resolve(client, graph, q["cypher"])
-    t0 = time.perf_counter()
-    result = client.query(cypher, graph)
-    return list(result.records or []), (time.perf_counter() - t0) * 1000
-
-
-@click.command()
-@click.option("--url", default="http://127.0.0.1:8090", show_default=True)
-@click.option("--graph", default="default", show_default=True)
-@click.option("--only", default=None, help="Run one query id, e.g. AR14.")
-@click.option("--rows", default=3, show_default=True, help="Rows to print per query.")
-@click.option("--coverage", "show_coverage", is_flag=True, help="Print which scope.md question each query answers and exit.")
-def main(url, graph, only, rows, show_coverage):
-    if show_coverage:
-        for n, who in coverage().items():
-            click.echo(f"Q{n:02d}  {who}")
-        return
-    selected = [q for q in QUERIES if only is None or q["id"] == only]
-    if not selected:
-        raise click.BadParameter(f"no query with id {only!r}; ids are {', '.join(q['id'] for q in QUERIES)}", param_hint="--only")
-    from samyama import SamyamaClient
-    client = SamyamaClient.connect(url)
-    failures = 0
-    for q in selected:
-        try:
-            records, ms = run(client, graph, q)
-        except Exception as exc:
-            failures += 1
-            click.echo(f"{q['id']}  ERROR  {q['question']}\n      {exc}")
-            continue
-        ok = (not records) if q.get("expect_empty") else bool(records)
-        failures += not ok
-        click.echo(f"{q['id']}  {'ok ' if ok else 'BAD'}  {len(records):4d} rows {ms:7.1f} ms  {q['question']}")
-        for r in records[:rows]:
-            click.echo("      " + " | ".join(str(v)[:70] for v in r))
-    click.echo(f"\n{failures} failing" if failures else f"\nall {len(selected)} queries ok")
-    sys.exit(1 if failures else 0)
-
-
-if __name__ == "__main__":
-    main()

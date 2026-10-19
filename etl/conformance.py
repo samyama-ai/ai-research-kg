@@ -8,8 +8,8 @@
 Every check is measured, not asserted. What is checked against:
 
     taxonomy        the catalog's TAXONOMY.md and topics/ folders (35 topics)
-    ontology        ontology/ai_research_kg.ttl (classes, domain/range, cardinality, required properties)
-    coding systems  id patterns in the ontology, vocab/concepts.yaml code lists, arXiv/DOI/ISO 8601
+    ontology        schema/ai_research_kg.ttl (classes, domain/range, cardinality, required properties)
+    coding systems  id patterns in the ontology, schema/concepts.yaml code lists, arXiv/DOI/ISO 8601
     standards       naming conventions, PROV-O provenance, computed-edge labelling (docs/standards.md)
 
 A check fails (exit code 1) only on a rule the graph promises; measurements that
@@ -170,7 +170,7 @@ ASSUMPTION_HEAD_RE = re.compile(r"\*\*[^*\n]{0,40}assum[^*\n]{0,40}\*\*", re.I)
 
 
 def check_ontology(r: Report, g: Graph, onto: dict, root: Path) -> None:
-    S = "2. Ontology (ontology/ai_research_kg.ttl)"
+    S = "2. Ontology (schema/ai_research_kg.ttl)"
     labels = set(g.nodes)
     types = {e[2] for e in g.edges}
     r.add(S, "O1", "Node labels in the graph = classes in the ontology",
@@ -335,7 +335,7 @@ def check_coding(r: Report, g: Graph, onto: dict, vocab: dict) -> None:
         used["relatedness_method"][e[5]["method"]] += 1
         if e[5]["method"] not in codes(vocab, "relatedness_method") or not 0 < e[5]["score"] <= 1:
             bad.append(f"RELATED_TO {e[1]}: {e[5]}")
-    r.add(S, "C9", "Every coded value is on its vocab/concepts.yaml list", bad,
+    r.add(S, "C9", "Every coded value is on its schema/concepts.yaml list", bad,
           f"{sum(sum(c.values()) for c in used.values()):,} values in {len(used)} schemes checked")
     unused = [f"{s}:{c}" for s in used for c in codes(vocab, s, in_graph_only=True) if not used[s][c]]
     r.add(S, "C10", "Every in-use code is used at least once (a code nobody uses should go)", unused)

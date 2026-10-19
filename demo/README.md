@@ -55,6 +55,16 @@ AGG=/path/to/agg demo/record.sh http://127.0.0.1:8090    # -> ai-research-kg.cas
 ```
 
 `record.sh` measures the report's height from an unpaced run, records the paced run with asciinema at
-that height (100 columns; the `.cast` is not committed), renders it with agg at font size 18 with a 14-second hold on the final
-frame, and regenerates `queries.cypher`. The GIF in this folder was recorded on 2026-10-13 from the
-v1.1 graph (29,707 nodes, 62,842 edges); re-record when the graph changes.
+that height (100 columns), renders it with agg at font size 18 with a 14-second hold on the final
+frame, and regenerates `queries.cypher`. The GIF in this folder and `ai-research-kg.cast`, the
+asciinema recording it was rendered from, were made on 2026-10-13 from the v1.1 graph (29,707 nodes,
+62,842 edges); re-record both when the graph changes.
+
+## Connect Samyama Insight
+
+`insight_proxy.py` is a small local CORS proxy, so the Insight console can reach the engine while
+you are signed in (docs/ENGINE-NOTES.md explains why it is needed):
+
+```bash
+python demo/insight_proxy.py          # 127.0.0.1:8091 -> http://127.0.0.1:8090; connect Insight to http://localhost:8091
+```

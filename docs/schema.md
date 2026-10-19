@@ -153,6 +153,6 @@ Every node in the path above also carries `retrieved_at: "2026-10-07"` and `sour
 ## 8. Question coverage
 
 `benchmarks/queries.py` maps every `docs/scope.md` question to a query or to a reason it cannot be
-answered (`python -m benchmarks.queries --coverage`; `tests/test_queries.py` checks the mapping is
+answered (`python -m benchmarks.run --coverage`; `tests/test_queries.py` checks the mapping is
 complete). Not answerable in v1: Q12 and Q25–28 (methods), Q33 (needs an "enables" link the catalog
 never states), Q35 (needs community detection over `RELATED_TO`).

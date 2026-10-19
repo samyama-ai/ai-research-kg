@@ -12,7 +12,7 @@ docker run -d --name samyama-ai_research -p 8090:8080 \
 ```
 
 ## 2. Even with the flag, a signed-in Insight is blocked
-The preflight answers `Access-Control-Allow-Headers: *`. Browsers do **not** let the `*` wildcard cover the `Authorization` header, which Insight sends when you're signed in. Workaround: the small CORS proxy in this repo, [`tools/insight_proxy.py`](../tools/insight_proxy.py), listens on `127.0.0.1:8091`, forwards to the engine on `8090` and echoes the requested headers for the Insight origin only. Run `python tools/insight_proxy.py` and connect Insight to `http://localhost:8091`.
+The preflight answers `Access-Control-Allow-Headers: *`. Browsers do **not** let the `*` wildcard cover the `Authorization` header, which Insight sends when you're signed in. Workaround: the small CORS proxy in this repo, [`demo/insight_proxy.py`](../demo/insight_proxy.py), listens on `127.0.0.1:8091`, forwards to the engine on `8090` and echoes the requested headers for the Insight origin only. Run `python demo/insight_proxy.py` and connect Insight to `http://localhost:8091`.
 
 Chrome 153 also needed `chrome://flags/#local-network-access-check` set to **Disabled**. **Warning:** that flag is a browser security check (it stops public web pages from reaching services on your local network). Only disable it on a development machine, while you use Insight, and set it back to Default afterwards; don't do this on a machine that holds anything sensitive.
 

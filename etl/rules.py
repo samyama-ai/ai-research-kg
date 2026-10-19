@@ -4,7 +4,7 @@ Kept apart from the parsing code so that each list can be read, reviewed and
 changed on its own: citation-role buckets, venue aliases, the catalog's five
 obstruction types, the institution alias list, and the "Concrete Next
 Experiment" field patterns. The code lists these feed are mirrored in
-vocab/concepts.yaml and checked by etl/conformance.py.
+schema/concepts.yaml and checked by etl/conformance.py.
 """
 from __future__ import annotations
 
